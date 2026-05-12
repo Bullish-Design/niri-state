@@ -12,11 +12,14 @@ Completed implementation changes:
 - Selector typing hardening and top-level selector exports.
 - Added `tests/runtime/test_broadcaster.py` and expanded waiter/resync tests.
 
-Validation results:
+Validation results (updated May 12, 2026):
+- `devenv shell -- ty check .` passes with zero diagnostics.
 - `devenv shell -- ruff check .` passes.
 - `devenv shell -- ruff format --check .` passes.
-- `devenv shell -- pytest -q` passes.
-- `devenv shell -- ty check .` still fails with 43 diagnostics, primarily pre-existing test typing debt (constructor/dynamic-dict typing and strict overload issues across many test modules).
 
-Next step if required:
-- Dedicated follow-up project to normalize test typing helpers/models and eliminate remaining `ty` diagnostics.
+Typing remediation completed:
+- Added `tests/_typing_helpers.py` with a typed `make_minimal_snapshot()` helper.
+- Replaced dynamic `NiriSnapshot(**defaults)` test patterns with typed helper usage.
+- Replaced several dynamic `Model(**dict)` construction paths in integration tests with `model_validate(...)`.
+- Fixed window layout typing in tests by using `WindowLayout.model_validate(...)`.
+- Removed `TemporaryDirectory()` usage that triggered strict overload diagnostics in `ty` and replaced with `mkdtemp()` + cleanup.

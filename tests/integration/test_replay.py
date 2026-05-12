@@ -33,14 +33,13 @@ def replay_trace(trace: ReplayTrace) -> tuple[Any, tuple[str, ...], HealthState]
     from niri_state._core.reducers.root import reduce_event
     from niri_state._core.snapshot_builder import build_initial_draft
 
-    layouts_dict = trace.keyboard_layouts
-    layouts = KeyboardLayouts(**layouts_dict)
+    layouts = KeyboardLayouts.model_validate(trace.keyboard_layouts)
 
-    outputs = {}
+    outputs: dict[str, Output] = {}
     for name, out_dict in trace.outputs.items():
-        outputs[name] = Output(**out_dict)
+        outputs[name] = Output.model_validate(out_dict)
 
-    workspaces = [Workspace(**ws) for ws in trace.workspaces]
+    workspaces = [Workspace.model_validate(ws) for ws in trace.workspaces]
 
     windows = []
     for win_dict in trace.windows:
@@ -55,7 +54,7 @@ def replay_trace(trace: ReplayTrace) -> tuple[Any, tuple[str, ...], HealthState]
                 "position": None,
                 "size": None,
             }
-        windows.append(WindowModel(**w))
+        windows.append(WindowModel.model_validate(w))
 
     focused_output: Output | None = None
     if trace.focused_output and trace.focused_output in outputs:
@@ -67,7 +66,7 @@ def replay_trace(trace: ReplayTrace) -> tuple[Any, tuple[str, ...], HealthState]
             focused_window = w
             break
 
-    overview = OverviewModel(**trace.overview)
+    overview = OverviewModel.model_validate(trace.overview)
 
     payload = BootstrapPayload(
         outputs=outputs,

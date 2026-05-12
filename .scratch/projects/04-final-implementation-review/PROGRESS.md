@@ -9,4 +9,4 @@
 - [x] Implement selector typing/export improvements from review
 - [x] Add runtime broadcaster tests and waiter behavior tests
 - [x] Re-run lint/format/tests quality gates
-- [ ] Drive `ty check .` to zero diagnostics (blocked by pre-existing broad test typing debt)
+- [x] Drive `ty check .` to zero diagnostics

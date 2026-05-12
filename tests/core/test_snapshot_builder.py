@@ -5,6 +5,7 @@ from niri_pypc.types.generated.models import (
     Output,
     Overview,
     Window,
+    WindowLayout,
     Workspace,
 )
 
@@ -13,24 +14,41 @@ from niri_state._core.models.health import HealthState
 from niri_state._core.snapshot_builder import build_initial_draft
 
 
-def _make_payload(**overrides) -> BootstrapPayload:
-    defaults = {
-        "outputs": {
-            "DP-1": Output(
-                name="DP-1",
-                make="Test",
-                model="Test",
-                serial=None,
-                physical_size=None,
-                modes=[],
-                current_mode=None,
-                is_custom_mode=False,
-                logical=None,
-                vrr_supported=False,
-                vrr_enabled=False,
-            )
-        },
-        "workspaces": [
+def _layout() -> WindowLayout:
+    return WindowLayout.model_validate(
+        {"tile_size": [100, 50], "window_offset_in_tile": [0, 0], "window_size": [100, 50]}
+    )
+
+
+def _make_payload(
+    *,
+    outputs: dict[str, Output] | None = None,
+    workspaces: list[Workspace] | None = None,
+    windows: list[Window] | None = None,
+    focused_output: Output | None = None,
+    focused_window: Window | None = None,
+    keyboard_layouts: KeyboardLayouts | None = None,
+    overview: Overview | None = None,
+    compositor_version: str | None = "test-version",
+) -> BootstrapPayload:
+    default_output = Output(
+        name="DP-1",
+        make="Test",
+        model="Test",
+        serial=None,
+        physical_size=None,
+        modes=[],
+        current_mode=None,
+        is_custom_mode=False,
+        logical=None,
+        vrr_supported=False,
+        vrr_enabled=False,
+    )
+    return BootstrapPayload(
+        outputs=outputs if outputs is not None else {"DP-1": default_output},
+        workspaces=workspaces
+        if workspaces is not None
+        else [
             Workspace(
                 id=1,
                 idx=0,
@@ -42,27 +60,15 @@ def _make_payload(**overrides) -> BootstrapPayload:
                 active_window_id=None,
             )
         ],
-        "windows": [],
-        "focused_output": Output(
-            name="DP-1",
-            make="Test",
-            model="Test",
-            serial=None,
-            physical_size=None,
-            modes=[],
-            current_mode=None,
-            is_custom_mode=False,
-            logical=None,
-            vrr_supported=False,
-            vrr_enabled=False,
+        windows=windows if windows is not None else [],
+        focused_output=focused_output if focused_output is not None else default_output,
+        focused_window=focused_window,
+        keyboard_layouts=(
+            keyboard_layouts if keyboard_layouts is not None else KeyboardLayouts(current_idx=0, names=["us"])
         ),
-        "focused_window": None,
-        "keyboard_layouts": KeyboardLayouts(current_idx=0, names=["us"]),
-        "overview": Overview(is_open=False),
-        "compositor_version": "test-version",
-    }
-    defaults.update(overrides)
-    return BootstrapPayload(**defaults)
+        overview=overview if overview is not None else Overview(is_open=False),
+        compositor_version=compositor_version,
+    )
 
 
 class TestSnapshotBuilder:
@@ -89,7 +95,7 @@ class TestSnapshotBuilder:
             is_urgent=False,
             pid=None,
             focus_timestamp=None,
-            layout={"tile_size": [100, 50], "window_offset_in_tile": [0, 0], "window_size": [100, 50]},
+            layout=_layout(),
         )
         payload = _make_payload(
             windows=[win],

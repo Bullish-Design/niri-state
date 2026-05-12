@@ -1,48 +1,12 @@
 from __future__ import annotations
 
 from niri_state.selectors import outputs
-
-
-def _make_minimal_snapshot(**overrides):
-    """Build a minimal snapshot for testing."""
-    from niri_pypc.types.generated.models import KeyboardLayouts
-
-    from niri_state._core.models.entities import KeyboardState, OverviewState
-    from niri_state._core.models.health import HealthState
-    from niri_state._core.models.snapshot import (
-        CompatibilityInfo,
-        DiagnosticsInfo,
-        NiriSnapshot,
-    )
-
-    defaults: dict[str, object] = dict(
-        revision=1,
-        timestamp=0.0,
-        health=HealthState.LIVE,
-        outputs={},
-        workspaces={},
-        windows={},
-        focused_output_name=None,
-        focused_workspace_id=None,
-        focused_window_id=None,
-        keyboard=KeyboardState(
-            protocol=KeyboardLayouts(current_idx=0, names=["us"]),
-            current_name="us",
-        ),
-        overview=OverviewState(is_open=False),
-        workspaces_by_output={},
-        windows_by_workspace={},
-        active_workspace_by_output={},
-        diagnostics=DiagnosticsInfo(),
-        compatibility=CompatibilityInfo(),
-    )
-    defaults.update(overrides)
-    return NiriSnapshot(**defaults)  # type: ignore[arg-type]
+from tests._typing_helpers import make_minimal_snapshot
 
 
 class TestOutputSelectors:
     def test_list_outputs_empty(self) -> None:
-        snap = _make_minimal_snapshot()
+        snap = make_minimal_snapshot()
         result = outputs.list_outputs(snap)
         assert result == []
 
@@ -51,7 +15,7 @@ class TestOutputSelectors:
 
         from niri_state._core.models.entities import OutputState
 
-        snap = _make_minimal_snapshot(
+        snap = make_minimal_snapshot(
             outputs={
                 "DP-1": OutputState(
                     output_name="DP-1",
@@ -87,7 +51,7 @@ class TestOutputSelectors:
 
         from niri_state._core.models.entities import OutputState
 
-        snap = _make_minimal_snapshot(
+        snap = make_minimal_snapshot(
             outputs={
                 "DP-1": OutputState(
                     output_name="DP-1",
@@ -108,6 +72,6 @@ class TestOutputSelectors:
         assert result.output_name == "DP-1"
 
     def test_get_output_not_found(self) -> None:
-        snap = _make_minimal_snapshot()
+        snap = make_minimal_snapshot()
         result = outputs.get_output(snap, "不存在")
         assert result is None

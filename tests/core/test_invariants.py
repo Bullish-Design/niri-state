@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
-from niri_pypc.types.generated.models import KeyboardLayouts, Window, Workspace
+from niri_pypc.types.generated.models import KeyboardLayouts, Window, WindowLayout, Workspace
 
 from niri_state._core.invariants import assert_invariants, collect_invariant_violations
 from niri_state._core.models.draft import DraftState
@@ -19,6 +21,12 @@ from niri_state._core.models.snapshot import (
 from niri_state.errors import InvariantError
 
 
+def _layout() -> WindowLayout:
+    return WindowLayout.model_validate(
+        {"tile_size": [100, 50], "window_offset_in_tile": [0, 0], "window_size": [100, 50]}
+    )
+
+
 def _make_valid_draft() -> DraftState:
     ws = Workspace(
         id=1, idx=0, name="1", output="DP-1", is_active=True, is_focused=True, is_urgent=False, active_window_id=None
@@ -33,7 +41,7 @@ def _make_valid_draft() -> DraftState:
         is_urgent=False,
         pid=None,
         focus_timestamp=None,
-        layout={"tile_size": [100, 50], "window_offset_in_tile": [0, 0], "window_size": [100, 50]},
+        layout=_layout(),
     )
     return DraftState(
         outputs={"DP-1": type("OutputState", (), {"output_name": "DP-1", "protocol": None})()},
@@ -98,7 +106,7 @@ class TestInvariants:
             is_urgent=False,
             pid=None,
             focus_timestamp=None,
-            layout={"tile_size": [100, 50], "window_offset_in_tile": [0, 0], "window_size": [100, 50]},
+            layout=_layout(),
         )
         draft = _make_valid_draft()
         draft.windows[10] = WindowState(window_id=10, protocol=win)
@@ -129,8 +137,9 @@ class TestInvariants:
         snap = draft.freeze(revision=1)
         with pytest.raises(InvariantError) as exc_info:
             assert_invariants(snap)
-        assert exc_info.value.revision == 1
-        assert len(exc_info.value.violations) > 0
+        err = cast(InvariantError, exc_info.value)
+        assert err.revision == 1
+        assert len(err.violations) > 0
 
     def test_focused_window_workspace_mismatch(self) -> None:
         win = Window(
@@ -143,7 +152,7 @@ class TestInvariants:
             is_urgent=False,
             pid=None,
             focus_timestamp=None,
-            layout={"tile_size": [100, 50], "window_offset_in_tile": [0, 0], "window_size": [100, 50]},
+            layout=_layout(),
         )
         draft = _make_valid_draft()
         draft.windows[10] = WindowState(window_id=10, protocol=win)

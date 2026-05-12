@@ -2,47 +2,18 @@ from __future__ import annotations
 
 import asyncio
 
-from niri_pypc.types.generated.models import KeyboardLayouts
-
-from niri_state._core.models.entities import KeyboardState, OverviewState
 from niri_state._core.models.health import HealthState
-from niri_state._core.models.snapshot import CompatibilityInfo, DiagnosticsInfo, NiriSnapshot
 from niri_state._runtime.resync import ResyncCoordinator, create_resync_coordinator
 from niri_state._runtime.store import NiriState
 from niri_state.config import NiriStateConfig, ResyncPolicy
-
-
-def _make_minimal_snapshot(**overrides):
-    defaults: dict[str, object] = dict(
-        revision=1,
-        timestamp=0.0,
-        health=HealthState.LIVE,
-        outputs={},
-        workspaces={},
-        windows={},
-        focused_output_name=None,
-        focused_workspace_id=None,
-        focused_window_id=None,
-        keyboard=KeyboardState(
-            protocol=KeyboardLayouts(current_idx=0, names=["us"]),
-            current_name="us",
-        ),
-        overview=OverviewState(is_open=False),
-        workspaces_by_output={},
-        windows_by_workspace={},
-        active_workspace_by_output={},
-        diagnostics=DiagnosticsInfo(),
-        compatibility=CompatibilityInfo(),
-    )
-    defaults.update(overrides)
-    return NiriSnapshot(**defaults)
+from tests._typing_helpers import make_minimal_snapshot
 
 
 class TestResyncCoordinator:
     async def test_manual_mark_stale_no_auto_resync(self) -> None:
         config = NiriStateConfig(resync_policy=ResyncPolicy.MANUAL)
         state = NiriState(config)
-        state._current_snapshot = _make_minimal_snapshot(health=HealthState.LIVE)
+        state._current_snapshot = make_minimal_snapshot(health=HealthState.LIVE)
 
         coordinator = ResyncCoordinator(state, config)
         coordinator.mark_stale("test reason")
@@ -53,10 +24,10 @@ class TestResyncCoordinator:
     async def test_auto_mark_stale_triggers_resync(self) -> None:
         config = NiriStateConfig(resync_policy=ResyncPolicy.AUTO)
         state = NiriState(config)
-        state._current_snapshot = _make_minimal_snapshot(health=HealthState.LIVE)
+        state._current_snapshot = make_minimal_snapshot(health=HealthState.LIVE)
 
         async def _fake_refresh() -> None:
-            state._current_snapshot = _make_minimal_snapshot(health=HealthState.LIVE, revision=2)
+            state._current_snapshot = make_minimal_snapshot(health=HealthState.LIVE, revision=2)
 
         state.refresh = _fake_refresh  # type: ignore[method-assign]
 
@@ -70,7 +41,7 @@ class TestResyncCoordinator:
     async def test_force_resync_available(self) -> None:
         config = NiriStateConfig(resync_policy=ResyncPolicy.MANUAL)
         state = NiriState(config)
-        state._current_snapshot = _make_minimal_snapshot(health=HealthState.LIVE)
+        state._current_snapshot = make_minimal_snapshot(health=HealthState.LIVE)
 
         called = False
 
@@ -87,7 +58,7 @@ class TestResyncCoordinator:
     async def test_create_resync_coordinator_factory(self) -> None:
         config = NiriStateConfig()
         state = NiriState(config)
-        state._current_snapshot = _make_minimal_snapshot()
+        state._current_snapshot = make_minimal_snapshot()
 
         coordinator = create_resync_coordinator(state, config)
         assert isinstance(coordinator, ResyncCoordinator)

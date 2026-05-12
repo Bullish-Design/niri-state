@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -177,7 +178,8 @@ class TestRunBootstrap:
             _make_version_response("0.42.0"),
         ]
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = tempfile.mkdtemp()
+        try:
             socket_path = Path(tmpdir) / "test.sock"
             server = await _start_mock_server(socket_path, cmd_responses, [])
 
@@ -197,10 +199,13 @@ class TestRunBootstrap:
                 await server.wait_closed()
                 if outcome is not None:
                     await outcome.bundle.close()
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
     async def test_outputs_type_mismatch(self) -> None:
         cmd_responses = [_response_frame({"Ok": {"Outputs": "not-a-dict"}})]
-        with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = tempfile.mkdtemp()
+        try:
             socket_path = Path(tmpdir) / "test.sock"
             server = await _start_mock_server(socket_path, cmd_responses, [])
 
@@ -211,6 +216,8 @@ class TestRunBootstrap:
             finally:
                 server.close()
                 await server.wait_closed()
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
     async def test_no_live_before_replay(self) -> None:
         cmd_responses = [
@@ -237,7 +244,8 @@ class TestRunBootstrap:
             _make_version_response("0.42.0"),
         ]
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = tempfile.mkdtemp()
+        try:
             socket_path = Path(tmpdir) / "test.sock"
             server = await _start_mock_server(socket_path, cmd_responses, [])
 
@@ -252,6 +260,8 @@ class TestRunBootstrap:
                 await server.wait_closed()
                 if outcome is not None:
                     await outcome.bundle.close()
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
     async def test_version_optional(self) -> None:
         cmd_responses = [
@@ -264,7 +274,8 @@ class TestRunBootstrap:
             _make_overview_response(False),
         ]
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = tempfile.mkdtemp()
+        try:
             socket_path = Path(tmpdir) / "test.sock"
             server = await _start_mock_server(socket_path, cmd_responses, [])
 
@@ -278,3 +289,5 @@ class TestRunBootstrap:
                 await server.wait_closed()
                 if outcome is not None:
                     await outcome.bundle.close()
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
