@@ -12,7 +12,11 @@ authors = [
 
 dependencies = [
   "pydantic>=2.12.5",
+  "niri-pypc",
 ]
+
+[tool.uv.sources]
+niri-pypc = { path = ".context/niri-pypc", editable = true }
 
 [project.optional-dependencies]
 dev = [
