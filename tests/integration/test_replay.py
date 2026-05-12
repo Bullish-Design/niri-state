@@ -20,6 +20,7 @@ class ReplayTrace:
     expected_workspace_ids: tuple[int, ...]
     expected_window_ids: tuple[int, ...]
     expected_health: HealthState
+    policy: str = "stale"
 
 
 def replay_trace(trace: ReplayTrace) -> tuple[Any, tuple[str, ...], HealthState]:
@@ -82,7 +83,7 @@ def replay_trace(trace: ReplayTrace) -> tuple[Any, tuple[str, ...], HealthState]
     draft = build_initial_draft(payload)
 
     for event in trace.events:
-        reduce_event(draft, event, "stale")
+        reduce_event(draft, event, trace.policy)
 
     final_snapshot = draft.freeze(revision=len(trace.events) + 1, force_health=HealthState.LIVE)
     violations = collect_invariant_violations(final_snapshot)

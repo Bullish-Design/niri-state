@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from niri_pypc.types.generated.models import KeyboardLayouts
 
 from niri_state._core.models.entities import KeyboardState, OverviewState
@@ -44,26 +46,43 @@ class TestResyncCoordinator:
 
         coordinator = ResyncCoordinator(state, config)
         coordinator.mark_stale("test reason")
+        await asyncio.sleep(0)
 
-        assert state.health == HealthState.LIVE
+        assert state.health == HealthState.STALE
 
     async def test_auto_mark_stale_triggers_resync(self) -> None:
         config = NiriStateConfig(resync_policy=ResyncPolicy.AUTO)
         state = NiriState(config)
         state._current_snapshot = _make_minimal_snapshot(health=HealthState.LIVE)
 
+        async def _fake_refresh() -> None:
+            state._current_snapshot = _make_minimal_snapshot(health=HealthState.LIVE, revision=2)
+
+        state.refresh = _fake_refresh  # type: ignore[method-assign]
+
         coordinator = ResyncCoordinator(state, config)
         coordinator.mark_stale("test reason")
-
         assert coordinator._resync_task is not None
+        await coordinator._resync_task
+
+        assert state.health == HealthState.LIVE
 
     async def test_force_resync_available(self) -> None:
         config = NiriStateConfig(resync_policy=ResyncPolicy.MANUAL)
         state = NiriState(config)
         state._current_snapshot = _make_minimal_snapshot(health=HealthState.LIVE)
 
+        called = False
+
+        async def _fake_refresh() -> None:
+            nonlocal called
+            called = True
+
+        state.refresh = _fake_refresh  # type: ignore[method-assign]
+
         coordinator = ResyncCoordinator(state, config)
         await coordinator.force_resync()
+        assert called
 
     async def test_create_resync_coordinator_factory(self) -> None:
         config = NiriStateConfig()

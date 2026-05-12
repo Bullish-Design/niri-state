@@ -16,16 +16,17 @@ from niri_state._core.models.entities import WindowState
 
 def apply_windows_changed(draft: DraftState, event: WindowsChangedEvent) -> bool:
     """Full replacement of window map."""
-    old_count = len(draft.windows)
-    draft.windows = {win.id: WindowState(window_id=win.id, protocol=win) for win in event.windows}
-    return len(draft.windows) != old_count
+    new_windows = {win.id: WindowState(window_id=win.id, protocol=win) for win in event.windows}
+    changed = draft.windows != new_windows
+    draft.windows = new_windows
+    return changed
 
 
 def apply_window_opened_or_changed(draft: DraftState, event: WindowOpenedOrChangedEvent) -> bool:
     """Upsert window by id."""
-    old_present = event.window.id in draft.windows
+    old_state = draft.windows.get(event.window.id)
     draft.windows[event.window.id] = WindowState(window_id=event.window.id, protocol=event.window)
-    return not old_present or draft.windows[event.window.id].protocol != event.window
+    return old_state is None or old_state.protocol != event.window
 
 
 def apply_window_closed(draft: DraftState, event: WindowClosedEvent) -> bool:
@@ -55,8 +56,12 @@ def apply_window_urgency_changed(draft: DraftState, event: WindowUrgencyChangedE
     if event.id not in draft.windows:
         return False
     old = draft.windows[event.id]
-    updated_protocol = old.protocol.model_copy(update={"is_urgent": event.urgent})
-    draft.windows[event.id] = old.model_copy(update={"protocol": updated_protocol})
+    updated_protocol = old.protocol.model_copy(
+        update={"is_urgent": event.urgent}  # type: ignore[arg-type]
+    )
+    draft.windows[event.id] = old.model_copy(
+        update={"protocol": updated_protocol}  # type: ignore[arg-type]
+    )
     return old.protocol.is_urgent != event.urgent
 
 
@@ -65,8 +70,12 @@ def apply_window_focus_timestamp_changed(draft: DraftState, event: WindowFocusTi
     if event.id not in draft.windows:
         return False
     old = draft.windows[event.id]
-    updated_protocol = old.protocol.model_copy(update={"focus_timestamp": event.focus_timestamp})
-    draft.windows[event.id] = old.model_copy(update={"protocol": updated_protocol})
+    updated_protocol = old.protocol.model_copy(
+        update={"focus_timestamp": event.focus_timestamp}  # type: ignore[arg-type]
+    )
+    draft.windows[event.id] = old.model_copy(
+        update={"protocol": updated_protocol}  # type: ignore[arg-type]
+    )
     return old.protocol.focus_timestamp != event.focus_timestamp
 
 
@@ -77,8 +86,12 @@ def apply_window_layouts_changed(draft: DraftState, event: WindowLayoutsChangedE
         if win_id not in draft.windows:
             continue
         old = draft.windows[win_id]
-        updated_protocol = old.protocol.model_copy(update={"layout": layout})
+        updated_protocol = old.protocol.model_copy(
+            update={"layout": layout}  # type: ignore[arg-type]
+        )
         if old.protocol.layout != updated_protocol.layout:
-            draft.windows[win_id] = old.model_copy(update={"protocol": updated_protocol})
+            draft.windows[win_id] = old.model_copy(
+                update={"protocol": updated_protocol}  # type: ignore[arg-type]
+            )
             changed = True
     return changed

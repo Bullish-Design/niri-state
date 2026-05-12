@@ -10,8 +10,8 @@ from niri_state._core.models.changes import ChangeSet
 from niri_state._core.models.entities import KeyboardState, OverviewState
 from niri_state._core.models.health import HealthState
 from niri_state._core.models.snapshot import CompatibilityInfo, DiagnosticsInfo, NiriSnapshot
-from niri_state._runtime.waiters import wait_for_selector, wait_until
-from niri_state.config import NiriStateConfig
+from niri_state._runtime.waiters import wait_for_selector, wait_until, watch
+from niri_state.config import NiriStateConfig, WaitHealthPolicy
 from niri_state.errors import WaitTimeoutError
 
 
@@ -53,11 +53,11 @@ class MockNiriState:
     def snapshot(self) -> NiriSnapshot | None:
         return self._current_snapshot
 
-    async def subscribe(self) -> AsyncIterator[tuple[NiriSnapshot, ChangeSet | None]]:
-        if self._current_snapshot is not None:
-            yield (self._current_snapshot, None)
+    def subscribe(self) -> AsyncIterator[tuple[NiriSnapshot, ChangeSet | None]]:
+        async def _iter() -> AsyncIterator[tuple[NiriSnapshot, ChangeSet | None]]:
+            if self._current_snapshot is not None:
+                yield (self._current_snapshot, None)
 
-        try:
             while True:
                 await self._publish_event.wait()
                 if self._next_snapshot is not None:
@@ -66,8 +66,8 @@ class MockNiriState:
                 self._publish_event.clear()
                 if self._closed:
                     break
-        except asyncio.CancelledError:
-            pass
+
+        return _iter()
 
     async def _publish(self, snap: NiriSnapshot, cs: ChangeSet | None) -> None:
         self._next_snapshot = snap
@@ -110,13 +110,36 @@ class TestWaitUntil:
         with pytest.raises(WaitTimeoutError):
             await wait_until(state, lambda s: s.revision > 999, timeout=0.05)
 
+    async def test_live_only_policy_ignores_stale_snapshot(self) -> None:
+        config = NiriStateConfig(wait_health_policy=WaitHealthPolicy.LIVE_ONLY)
+        stale = _make_minimal_snapshot(health=HealthState.STALE)
+        state = MockNiriState(config, stale)
+
+        with pytest.raises(WaitTimeoutError):
+            await wait_until(state, lambda s: s.health == HealthState.STALE, timeout=0.05)
+
 
 class TestWatch:
     async def test_watch_emits_initial(self) -> None:
-        pytest.skip("watch depends on async subscribe contract from NiriState")
+        config = NiriStateConfig()
+        state = MockNiriState(config, _make_minimal_snapshot(revision=1))
+        stream = watch(state, lambda s: s.revision)
+
+        first = await asyncio.wait_for(stream.__anext__(), timeout=0.1)
+        assert first == 1
 
     async def test_watch_only_on_change(self) -> None:
-        pytest.skip("watch depends on async subscribe contract from NiriState")
+        config = NiriStateConfig()
+        state = MockNiriState(config, _make_minimal_snapshot(revision=1))
+        stream = watch(state, lambda s: s.health)
+
+        first = await asyncio.wait_for(stream.__anext__(), timeout=0.1)
+        assert first is HealthState.LIVE
+
+        await state._publish(_make_minimal_snapshot(revision=2, health=HealthState.LIVE), None)
+
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(stream.__anext__(), timeout=0.05)
 
 
 class TestWaitForSelector:

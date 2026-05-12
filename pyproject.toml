@@ -21,6 +21,7 @@ niri-pypc = { path = ".context/niri-pypc", editable = true }
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0",
+  "pytest-asyncio>=0.23.0",
   "pytest-cov>=4.1",
   "mypy>=1.10",
   "ruff>=0.5.0",

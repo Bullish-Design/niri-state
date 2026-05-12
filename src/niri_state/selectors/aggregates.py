@@ -1,13 +1,30 @@
 from __future__ import annotations
 
+from typing import TypedDict, cast
+
+from niri_state._core.models.entities import WindowState, WorkspaceState
 from niri_state._core.models.snapshot import NiriSnapshot
 from niri_state._core.models.types import OutputName
 
 
-def get_workspace_tree(snapshot: NiriSnapshot, output_name: OutputName) -> dict[str, object]:
+class WorkspaceTreeNode(TypedDict):
+    workspace: WorkspaceState
+    windows: tuple[WindowState, ...]
+
+
+class FocusedContext(TypedDict, total=False):
+    focused_output_name: OutputName | None
+    focused_workspace_id: int | None
+    focused_window_id: int | None
+    active_workspace_on_output: WorkspaceState
+    focused_workspace: WorkspaceState
+    focused_window: WindowState
+
+
+def get_workspace_tree(snapshot: NiriSnapshot, output_name: OutputName) -> dict[str, WorkspaceTreeNode]:
     """Get a combined view of workspaces and their windows for an output."""
     ws_ids = snapshot.workspaces_by_output.get(output_name, ())
-    result: dict[str, object] = {}
+    result: dict[str, WorkspaceTreeNode] = {}
     for ws_id in ws_ids:
         ws = snapshot.workspaces.get(ws_id)
         if ws is not None:
@@ -19,17 +36,16 @@ def get_workspace_tree(snapshot: NiriSnapshot, output_name: OutputName) -> dict[
     return result
 
 
-def get_focused_context(snapshot: NiriSnapshot) -> dict[str, object]:
+def get_focused_context(snapshot: NiriSnapshot) -> FocusedContext:
     """Get the complete focus context."""
     output_name = snapshot.focused_output_name
     workspace_id = snapshot.focused_workspace_id
     window_id = snapshot.focused_window_id
 
-    ctx: dict[str, object] = {
-        "focused_output_name": output_name,
-        "focused_workspace_id": workspace_id,
-        "focused_window_id": window_id,
-    }
+    ctx = cast(FocusedContext, {})
+    ctx["focused_output_name"] = output_name
+    ctx["focused_workspace_id"] = workspace_id
+    ctx["focused_window_id"] = window_id
 
     if output_name is not None:
         active_ws = snapshot.active_workspace_by_output.get(output_name)
@@ -45,7 +61,7 @@ def get_focused_context(snapshot: NiriSnapshot) -> dict[str, object]:
     return ctx
 
 
-def get_urgent_items(snapshot: NiriSnapshot) -> dict[str, tuple[object, ...]]:
+def get_urgent_items(snapshot: NiriSnapshot) -> dict[str, tuple[WorkspaceState, ...] | tuple[WindowState, ...]]:
     """Get all urgent workspaces and windows."""
     urgent_workspaces = tuple(ws for ws in snapshot.workspaces.values() if ws.protocol.is_urgent)
     urgent_windows = tuple(win for win in snapshot.windows.values() if win.protocol.is_urgent)

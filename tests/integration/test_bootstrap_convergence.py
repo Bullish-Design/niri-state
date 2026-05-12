@@ -22,6 +22,7 @@ class ReplayTrace:
     expected_workspace_ids: tuple[int, ...]
     expected_window_ids: tuple[int, ...]
     expected_health: HealthState
+    policy: str = "stale"
 
 
 def replay_trace(trace: ReplayTrace) -> tuple[Any, tuple[str, ...], HealthState]:
@@ -84,7 +85,7 @@ def replay_trace(trace: ReplayTrace) -> tuple[Any, tuple[str, ...], HealthState]
     draft = build_initial_draft(payload)
 
     for event in trace.events:
-        reduce_event(draft, event, "stale")
+        reduce_event(draft, event, trace.policy)
 
     final_snapshot = draft.freeze(revision=len(trace.events) + 1, force_health=HealthState.LIVE)
 
@@ -292,6 +293,101 @@ class TestReplayTraces:
         assert health == HealthState.LIVE
         assert 200 in snap.windows
         assert snap.windows[200].protocol.workspace_id is None
+
+    def test_unknown_event_fail_policy_trace(self) -> None:
+        from niri_pypc.types.generated.event import UnknownEvent
+
+        trace = ReplayTrace(
+            name="unknown-event-fail",
+            outputs={},
+            workspaces=[],
+            windows=[],
+            focused_output=None,
+            focused_window_id=None,
+            keyboard_layouts={"current_idx": 0, "names": ["us"]},
+            overview={"is_open": False},
+            events=(UnknownEvent(variant_name="SomeUnknownEvent", raw_payload={}),),
+            expected_workspace_ids=(),
+            expected_window_ids=(),
+            expected_health=HealthState.FAILED,
+            policy="fail",
+        )
+
+        from niri_state.errors import DesyncError
+
+        with pytest.raises(DesyncError):
+            replay_trace(trace)
+
+    def test_multi_output_active_workspace_trace(self) -> None:
+        from niri_pypc.types.generated.event import WorkspaceActivatedEvent
+
+        trace = ReplayTrace(
+            name="multi-output-active-workspace",
+            outputs={
+                "DP-1": {
+                    "name": "DP-1",
+                    "make": "Dell",
+                    "model": "U2720Q",
+                    "is_custom_mode": False,
+                    "modes": [],
+                    "vrr_supported": False,
+                    "vrr_enabled": False,
+                },
+                "HDMI-1": {
+                    "name": "HDMI-1",
+                    "make": "Samsung",
+                    "model": "SyncMaster",
+                    "is_custom_mode": False,
+                    "modes": [],
+                    "vrr_supported": False,
+                    "vrr_enabled": False,
+                },
+            },
+            workspaces=[
+                {
+                    "id": 1,
+                    "idx": 0,
+                    "name": "main",
+                    "output": "DP-1",
+                    "is_active": True,
+                    "is_focused": True,
+                    "is_urgent": False,
+                    "active_window_id": None,
+                },
+                {
+                    "id": 2,
+                    "idx": 1,
+                    "name": "secondary",
+                    "output": "HDMI-1",
+                    "is_active": False,
+                    "is_focused": False,
+                    "is_urgent": False,
+                    "active_window_id": None,
+                },
+            ],
+            windows=[],
+            focused_output="DP-1",
+            focused_window_id=None,
+            keyboard_layouts={"current_idx": 0, "names": ["us"]},
+            overview={"is_open": False},
+            events=(
+                WorkspaceActivatedEvent(
+                    id=2,
+                    focused=False,
+                ),
+            ),
+            expected_workspace_ids=(1, 2),
+            expected_window_ids=(),
+            expected_health=HealthState.LIVE,
+            policy="stale",
+        )
+
+        snap, violations, health = replay_trace(trace)
+        assert health == HealthState.LIVE
+        assert 1 in snap.workspaces
+        assert 2 in snap.workspaces
+        assert snap.workspaces[1].protocol.is_active is True
+        assert snap.workspaces[2].protocol.is_active is True
 
 
 class TestBootstrapConvergence:

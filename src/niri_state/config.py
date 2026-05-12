@@ -66,11 +66,11 @@ def normalize_config(config: NiriStateConfig) -> NiriStateConfig:
         return config
 
     try:
-        normalized_pypc = replace(config.pypc, backpressure_mode=BackpressureMode.FAIL_FAST)
+        normalized_pypc = replace(config.pypc, backpressure_mode=BackpressureMode.FAIL_FAST)  # type: ignore[arg-type]
     except Exception as exc:
         raise StateConfigError(
             "Failed to normalize upstream backpressure for strict mode",
             cause=exc,
         ) from exc
 
-    return replace(config, pypc=normalized_pypc)
+    return replace(config, pypc=normalized_pypc)  # type: ignore[arg-type]

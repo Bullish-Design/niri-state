@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from niri_state._core.models.entities import WindowState
 from niri_state._core.models.snapshot import NiriSnapshot
 from niri_state._core.models.types import OutputName, WindowId, WorkspaceId
 
@@ -19,7 +20,7 @@ def get_focused_window_id(snapshot: NiriSnapshot) -> WindowId | None:
     return snapshot.focused_window_id
 
 
-def get_focused_window(snapshot: NiriSnapshot) -> object | None:
+def get_focused_window(snapshot: NiriSnapshot) -> WindowState | None:
     """Get the focused window."""
     if snapshot.focused_window_id is None:
         return None

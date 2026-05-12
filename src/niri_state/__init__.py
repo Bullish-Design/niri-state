@@ -24,6 +24,7 @@ from niri_state.errors import (
     SubscriptionOverflowError,
     WaitTimeoutError,
 )
+from niri_state.selectors import aggregates, focus, keyboard, outputs, overview, windows, workspaces
 
 __all__ = [
     "__version__",
@@ -46,4 +47,11 @@ __all__ = [
     "StateLifecycleError",
     "SubscriptionOverflowError",
     "WaitTimeoutError",
+    "aggregates",
+    "focus",
+    "keyboard",
+    "outputs",
+    "overview",
+    "windows",
+    "workspaces",
 ]

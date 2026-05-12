@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from niri_state._core.models.entities import KeyboardState
 from niri_state._core.models.snapshot import NiriSnapshot
 
 
-def get_keyboard_state(snapshot: NiriSnapshot) -> object:
+def get_keyboard_state(snapshot: NiriSnapshot) -> KeyboardState:
     """Get the keyboard state."""
     return snapshot.keyboard
 

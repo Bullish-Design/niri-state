@@ -13,9 +13,10 @@ from niri_state._core.models.entities import WorkspaceState
 
 def apply_workspaces_changed(draft: DraftState, event: WorkspacesChangedEvent) -> bool:
     """Full replacement of workspace map."""
-    old_count = len(draft.workspaces)
-    draft.workspaces = {ws.id: WorkspaceState(workspace_id=ws.id, protocol=ws) for ws in event.workspaces}
-    return len(draft.workspaces) != old_count
+    new_workspaces = {ws.id: WorkspaceState(workspace_id=ws.id, protocol=ws) for ws in event.workspaces}
+    changed = draft.workspaces != new_workspaces
+    draft.workspaces = new_workspaces
+    return changed
 
 
 def apply_workspace_activated(draft: DraftState, event: WorkspaceActivatedEvent) -> bool:
@@ -31,8 +32,12 @@ def apply_workspace_activated(draft: DraftState, event: WorkspaceActivatedEvent)
         target_ws = draft.workspaces[target_ws_id]
         target_output = target_ws.protocol.output
         if not target_ws.protocol.is_active:
-            updated_protocol = target_ws.protocol.model_copy(update={"is_active": True})
-            draft.workspaces[target_ws_id] = target_ws.model_copy(update={"protocol": updated_protocol})
+            updated_protocol = target_ws.protocol.model_copy(
+                update={"is_active": True}  # type: ignore[arg-type]
+            )
+            draft.workspaces[target_ws_id] = target_ws.model_copy(
+                update={"protocol": updated_protocol}  # type: ignore[arg-type]
+            )
             changed = True
 
     for ws_id, ws in draft.workspaces.items():
@@ -65,8 +70,12 @@ def apply_workspace_active_window_changed(draft: DraftState, event: WorkspaceAct
     old = draft.workspaces[event.workspace_id]
     if old.protocol.active_window_id == event.active_window_id:
         return False
-    updated_protocol = old.protocol.model_copy(update={"active_window_id": event.active_window_id})
-    draft.workspaces[event.workspace_id] = old.model_copy(update={"protocol": updated_protocol})
+    updated_protocol = old.protocol.model_copy(
+        update={"active_window_id": event.active_window_id}  # type: ignore[arg-type]
+    )
+    draft.workspaces[event.workspace_id] = old.model_copy(
+        update={"protocol": updated_protocol}  # type: ignore[arg-type]
+    )
     return True
 
 
@@ -77,6 +86,10 @@ def apply_workspace_urgency_changed(draft: DraftState, event: WorkspaceUrgencyCh
     old = draft.workspaces[event.id]
     if old.protocol.is_urgent == event.urgent:
         return False
-    updated_protocol = old.protocol.model_copy(update={"is_urgent": event.urgent})
-    draft.workspaces[event.id] = old.model_copy(update={"protocol": updated_protocol})
+    updated_protocol = old.protocol.model_copy(
+        update={"is_urgent": event.urgent}  # type: ignore[arg-type]
+    )
+    draft.workspaces[event.id] = old.model_copy(
+        update={"protocol": updated_protocol}  # type: ignore[arg-type]
+    )
     return True

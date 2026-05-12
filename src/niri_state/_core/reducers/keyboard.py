@@ -27,17 +27,23 @@ def apply_keyboard_layouts_changed(draft: DraftState, event: KeyboardLayoutsChan
     new_current = _derive_current_name(new_protocol)
 
     if old_protocol != new_protocol or old_current != new_current:
-        draft.keyboard = draft.keyboard.model_copy(update={"protocol": new_protocol, "current_name": new_current})
+        draft.keyboard = draft.keyboard.model_copy(
+            update={"protocol": new_protocol, "current_name": new_current}  # type: ignore[arg-type]
+        )
         return True
     return False
 
 
 def apply_keyboard_layout_switched(draft: DraftState, event: KeyboardLayoutSwitchedEvent) -> bool:
     """Patch current_idx; recompute current_name."""
-    updated_protocol = draft.keyboard.protocol.model_copy(update={"current_idx": event.idx})
+    updated_protocol = draft.keyboard.protocol.model_copy(
+        update={"current_idx": event.idx}  # type: ignore[arg-type]
+    )
     new_current = _derive_current_name(updated_protocol)
 
     if draft.keyboard.current_name != new_current:
-        draft.keyboard = draft.keyboard.model_copy(update={"protocol": updated_protocol, "current_name": new_current})
+        draft.keyboard = draft.keyboard.model_copy(
+            update={"protocol": updated_protocol, "current_name": new_current}  # type: ignore[arg-type]
+        )
         return True
     return False

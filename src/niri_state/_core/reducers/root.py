@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict
 from niri_state._core.models.changes import ChangeCause, ChangedDomain
 from niri_state._core.models.draft import DraftState
 from niri_state._core.reducers import keyboard, overview, windows, workspaces
+from niri_state.config import UnknownEventPolicy
 
 
 class ReduceResult(BaseModel):
@@ -39,9 +40,10 @@ class ReduceResult(BaseModel):
 def reduce_event(
     draft: DraftState,
     event: object,
-    unknown_event_policy: str,
+    unknown_event_policy: UnknownEventPolicy | str,
 ) -> ReduceResult:
     """Dispatch on concrete event class and apply appropriate reducer."""
+    policy = _normalize_unknown_event_policy(unknown_event_policy)
     changed_domains: set[ChangedDomain] = set()
 
     match event:
@@ -218,7 +220,7 @@ def reduce_event(
             )
 
         case UnknownEvent() as e:
-            return _handle_unknown_event(draft, e, unknown_event_policy)
+            return _handle_unknown_event(draft, e, policy)
 
         case _:
             return ReduceResult(
@@ -232,7 +234,7 @@ def reduce_event(
 def _handle_unknown_event(
     draft: DraftState,
     event: UnknownEvent,
-    policy: str,
+    policy: UnknownEventPolicy,
 ) -> ReduceResult:
     """Handle unknown events according to policy."""
     from niri_state._core.models.health import HealthState
@@ -240,10 +242,10 @@ def _handle_unknown_event(
 
     variant_name = event.variant_name
 
-    if policy == "stale":
+    if policy is UnknownEventPolicy.STALE:
         draft.health = HealthState.STALE
         draft.diagnostics = draft.diagnostics.model_copy(
-            update={"unknown_events_seen": draft.diagnostics.unknown_events_seen + 1}
+            update={"unknown_events_seen": draft.diagnostics.unknown_events_seen + 1}  # type: ignore[arg-type]
         )
         return ReduceResult(
             applied=True,
@@ -253,13 +255,13 @@ def _handle_unknown_event(
             event_summary="unknown event -> stale",
         )
 
-    if policy == "fail":
+    if policy is UnknownEventPolicy.FAIL:
         raise DesyncError(
             f"Unknown event type: {variant_name}",
             event_type=variant_name,
         )
 
-    if policy == "ignore":
+    if policy is UnknownEventPolicy.IGNORE:
         return ReduceResult(
             applied=False,
             changed_domains=frozenset(),
@@ -274,3 +276,16 @@ def _handle_unknown_event(
         cause=ChangeCause.EVENT,
         event_type=variant_name,
     )
+
+
+def _normalize_unknown_event_policy(policy: UnknownEventPolicy | str) -> UnknownEventPolicy:
+    if isinstance(policy, UnknownEventPolicy):
+        return policy
+    normalized = policy.strip().lower()
+    if normalized == "stale":
+        return UnknownEventPolicy.STALE
+    if normalized == "fail":
+        return UnknownEventPolicy.FAIL
+    if normalized == "ignore":
+        return UnknownEventPolicy.IGNORE
+    return UnknownEventPolicy.STALE
