@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Callable
-from typing import TypeVar
+from collections.abc import AsyncIterator
 
 from niri_pypc import NiriConnectionBundle
 
@@ -271,36 +270,3 @@ class NiriState:
             self._bundle = None
 
         await self._transition_health(HealthState.CLOSED, "close called")
-
-
-T = TypeVar("T")
-
-
-async def wait_until(
-    state: NiriState,
-    predicate: Callable[[NiriSnapshot], bool],
-    timeout: float | None = None,
-) -> NiriSnapshot:
-    """Wait until predicate returns True for current snapshot."""
-    snap = state.snapshot
-    if snap is not None and predicate(snap):
-        return snap
-
-    async for snapshot, _ in state.subscribe():
-        if predicate(snapshot):
-            return snapshot
-
-    raise TimeoutError("Predicate never satisfied")
-
-
-async def watch(
-    state: NiriState,
-    selector: Callable[[NiriSnapshot], T],
-) -> AsyncIterator[T]:
-    """Watch selector values, emitting only on changes."""
-    prev: T | None = None
-    async for snapshot, _ in state.subscribe():
-        current = selector(snapshot)
-        if prev is None or current != prev:
-            prev = current
-            yield current

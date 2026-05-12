@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import pytest
-
 from niri_state.selectors import outputs
 
 
 def _make_minimal_snapshot(**overrides):
     """Build a minimal snapshot for testing."""
+    from niri_pypc.types.generated.models import KeyboardLayouts
+
     from niri_state._core.models.entities import KeyboardState, OverviewState
     from niri_state._core.models.health import HealthState
     from niri_state._core.models.snapshot import (
@@ -14,8 +14,6 @@ def _make_minimal_snapshot(**overrides):
         DiagnosticsInfo,
         NiriSnapshot,
     )
-    from niri_state._core.models.types import OutputName
-    from niri_pypc.types.generated.models import KeyboardLayouts
 
     defaults: dict[str, object] = dict(
         revision=1,
@@ -49,9 +47,9 @@ class TestOutputSelectors:
         assert result == []
 
     def test_list_outputs_returns_list(self) -> None:
-        from niri_state._core.models.entities import OutputState
-        from niri_state._core.models.types import OutputName
         from niri_pypc.types.generated.models import Output
+
+        from niri_state._core.models.entities import OutputState
 
         snap = _make_minimal_snapshot(
             outputs={
@@ -85,9 +83,9 @@ class TestOutputSelectors:
         assert len(result) == 2
 
     def test_get_output_found(self) -> None:
-        from niri_state._core.models.entities import OutputState
-        from niri_state._core.models.types import OutputName
         from niri_pypc.types.generated.models import Output
+
+        from niri_state._core.models.entities import OutputState
 
         snap = _make_minimal_snapshot(
             outputs={

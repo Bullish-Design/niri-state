@@ -104,14 +104,15 @@ class DraftState:
             active_workspace_by_output,
         )
 
-    def freeze(self, *, revision: Revision) -> NiriSnapshot:
+    def freeze(self, *, revision: Revision, force_health: HealthState | None = None) -> NiriSnapshot:
         """Freeze draft into an immutable published snapshot."""
         ws_by_output, win_by_ws, active_ws = self.build_indexes()
+        health = force_health if force_health is not None else self.health
 
         return NiriSnapshot(
             revision=revision,
             timestamp=time.monotonic(),
-            health=self.health,
+            health=health,
             outputs=MappingProxyType(dict(self.outputs)),
             workspaces=MappingProxyType(dict(self.workspaces)),
             windows=MappingProxyType(dict(self.windows)),

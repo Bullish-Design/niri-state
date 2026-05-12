@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import pytest
-
 from niri_state.selectors import windows
 
 
 def _make_minimal_snapshot(**overrides):
     """Build a minimal snapshot for testing."""
+    from niri_pypc.types.generated.models import KeyboardLayouts
+
     from niri_state._core.models.entities import KeyboardState, OverviewState
     from niri_state._core.models.health import HealthState
     from niri_state._core.models.snapshot import (
@@ -14,7 +14,6 @@ def _make_minimal_snapshot(**overrides):
         DiagnosticsInfo,
         NiriSnapshot,
     )
-    from niri_pypc.types.generated.models import KeyboardLayouts
 
     defaults: dict[str, object] = dict(
         revision=1,
@@ -63,8 +62,9 @@ class TestWindowSelectors:
         assert result == ()
 
     def test_get_floating_windows_with_floating(self) -> None:
-        from niri_state._core.models.entities import WindowState
         from niri_pypc.types.generated.models import Window
+
+        from niri_state._core.models.entities import WindowState
 
         ws_win = Window(
             id=100,
