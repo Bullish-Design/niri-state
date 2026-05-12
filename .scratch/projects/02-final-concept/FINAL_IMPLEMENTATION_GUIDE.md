@@ -1403,434 +1403,355 @@ devenv shell -- pytest -q tests/core/models/test_health.py
 # Step 4: Implement Snapshot Builder and Index Construction
 
 Implementation work:
-
-    Implement BootstrapPayload model (likely in bootstrap/runtime layer with core-compatible shape).
-    Implement _core/snapshot_builder.py::build_initial_snapshot(...).
-    Construct maps:
-
-    outputs keyed by output name.
-    workspaces keyed by workspace id.
-    windows keyed by window id.
-
-    Build indexes:
-
-    workspaces_by_output
-    windows_by_workspace
-    active_workspace_by_output
-
-    Derive focus pointers from focused output/window payloads and inferred workspace relationship.
-    Derive keyboard current_name safely with index bounds checks.
-    Initialize overview/diagnostics/compatibility metadata.
+1. Implement `BootstrapPayload` model (likely in bootstrap/runtime layer with core-compatible shape).
+2. Implement `_core/snapshot_builder.py::build_initial_snapshot(...)`.
+3. Construct maps:
+- outputs keyed by output name.
+- workspaces keyed by workspace id.
+- windows keyed by window id.
+4. Build indexes:
+- `workspaces_by_output`
+- `windows_by_workspace`
+- `active_workspace_by_output`
+5. Derive focus pointers from focused output/window payloads and inferred workspace relationship.
+6. Derive keyboard `current_name` safely with index bounds checks.
+7. Initialize overview/diagnostics/compatibility metadata.
 
 Validation for Step 4:
-
-    Tests for nominal bootstrap mapping.
-    Tests for null-focused output/window cases.
-    Tests where focused window/workspace references missing entities (must follow defined policy).
-    Tests for keyboard out-of-range current_idx behavior.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- ty check .
+1. Tests for nominal bootstrap mapping.
+2. Tests for null-focused output/window cases.
+3. Tests where focused window/workspace references missing entities (must follow defined policy).
+4. Tests for keyboard out-of-range `current_idx` behavior.
+5. `devenv shell -- ruff check .`
+6. `devenv shell -- ruff format --check .`
+7. `devenv shell -- ty check .`
 
 Pass criteria:
+1. Snapshot build is deterministic for equivalent payload input.
+2. Derived indexes match source entities exactly.
 
-    Snapshot build is deterministic for equivalent payload input.
-    Derived indexes match source entities exactly.
-
-8. Step 5: Implement Invariant Engine
+## 8. Step 5: Implement Invariant Engine
 
 Implementation work:
-
-    Implement _core/invariants.py with explicit checks:
-
-    key identity coherence.
-    referential integrity across workspace/output/window links.
-    focus pointer validity when non-null.
-    one active workspace per output consistency.
-    index completeness, no duplicates, no dangling references.
-
-    Return structured violations or raise InvariantError depending on policy call-site.
-    Add helper for post-reducer invariant enforcement.
+1. Implement `_core/invariants.py` with explicit checks:
+- key identity coherence.
+- referential integrity across workspace/output/window links.
+- focus pointer validity when non-null.
+- one active workspace per output consistency.
+- index completeness, no duplicates, no dangling references.
+2. Return structured violations or raise `InvariantError` depending on policy call-site.
+3. Add helper for post-reducer invariant enforcement.
 
 Validation for Step 5:
-
-    Unit tests with valid snapshots (no violations).
-    Unit tests for each violation class individually.
-    Unit tests for multiple simultaneous violations and deterministic message ordering.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- pytest -q tests/... (invariant tests)
+1. Unit tests with valid snapshots (no violations).
+2. Unit tests for each violation class individually.
+3. Unit tests for multiple simultaneous violations and deterministic message ordering.
+4. `devenv shell -- ruff check .`
+5. `devenv shell -- ruff format --check .`
+6. `devenv shell -- pytest -q tests/...` (invariant tests)
 
 Pass criteria:
+1. Violations are precise and actionable.
+2. Invariant engine is pure and side-effect free.
 
-    Violations are precise and actionable.
-    Invariant engine is pure and side-effect free.
-
-9. Step 6: Implement Domain Reducers
+## 9. Step 6: Implement Domain Reducers
 
 Implementation work:
-
-    Create reducers in _core/reducers/:
-
-    windows.py
-    workspaces.py
-    keyboard.py
-    overview.py
-
-    Windows reducer coverage:
-
-    WindowsChangedEvent (replace-all)
-    WindowOpenedOrChangedEvent (upsert)
-    WindowClosedEvent
-    WindowFocusChangedEvent
-    WindowUrgencyChangedEvent
-    WindowFocusTimestampChangedEvent
-    WindowLayoutsChangedEvent
-
-    Workspaces reducer coverage:
-
-    WorkspacesChangedEvent (replace-all)
-    WorkspaceActivatedEvent
-    WorkspaceActiveWindowChangedEvent
-    WorkspaceUrgencyChangedEvent
-
-    Keyboard reducer coverage:
-
-    KeyboardLayoutsChangedEvent
-    KeyboardLayoutSwitchedEvent
-
-    Overview reducer coverage:
-
-    OverviewOpenedOrClosedEvent
+1. Create reducers in `_core/reducers/`:
+- `windows.py`
+- `workspaces.py`
+- `keyboard.py`
+- `overview.py`
+2. Windows reducer coverage:
+- `WindowsChangedEvent` (replace-all)
+- `WindowOpenedOrChangedEvent` (upsert)
+- `WindowClosedEvent`
+- `WindowFocusChangedEvent`
+- `WindowUrgencyChangedEvent`
+- `WindowFocusTimestampChangedEvent`
+- `WindowLayoutsChangedEvent`
+3. Workspaces reducer coverage:
+- `WorkspacesChangedEvent` (replace-all)
+- `WorkspaceActivatedEvent`
+- `WorkspaceActiveWindowChangedEvent`
+- `WorkspaceUrgencyChangedEvent`
+4. Keyboard reducer coverage:
+- `KeyboardLayoutsChangedEvent`
+- `KeyboardLayoutSwitchedEvent`
+5. Overview reducer coverage:
+- `OverviewOpenedOrClosedEvent`
 
 Validation for Step 6:
-
-    Unit tests for each handled event variant, including no-op-on-no-change behavior where expected.
-    Tests proving replace-all events overwrite stale state completely.
-    Tests for deterministic conflict resolution order where multiple related updates occur.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- ty check .
-    devenv shell -- pytest -q tests/... (reducers)
+1. Unit tests for each handled event variant, including no-op-on-no-change behavior where expected.
+2. Tests proving replace-all events overwrite stale state completely.
+3. Tests for deterministic conflict resolution order where multiple related updates occur.
+4. `devenv shell -- ruff check .`
+5. `devenv shell -- ruff format --check .`
+6. `devenv shell -- ty check .`
+7. `devenv shell -- pytest -q tests/...` (reducers)
 
 Pass criteria:
+1. All mandatory event variants are handled and tested.
+2. Reducers remain pure (no IO, no clocks, no locks, no async).
 
-    All mandatory event variants are handled and tested.
-    Reducers remain pure (no IO, no clocks, no locks, no async).
-
-10. Step 7: Implement Root Reducer + Unknown Event Policy
+## 10. Step 7: Implement Root Reducer + Unknown Event Policy
 
 Implementation work:
-
-    Implement _core/reducers/root.py explicit dispatch on concrete event model classes from niri_pypc.types.generated.event.
-    Handle metadata events explicitly:
-
-    ConfigLoadedEvent
-    ScreenshotCapturedEvent
-
-    Implement unknown/unimplemented impactful event flow using UnknownEventPolicy:
-
-    STALE: mark stale + diagnostics.
-    FAIL: raise desync/failure error path.
-    IGNORE: only for declared harmless cases, still add diagnostics.
-
-    Return reducer result envelope with applied, changed domains, cause, optional event type/summary.
-    Recompute indexes as needed and run invariants before candidate snapshot is publishable.
+1. Implement `_core/reducers/root.py` explicit dispatch on concrete event model classes from `niri_pypc.types.generated.event`.
+2. Handle metadata events explicitly:
+- `ConfigLoadedEvent`
+- `ScreenshotCapturedEvent`
+3. Implement unknown/unimplemented impactful event flow using `UnknownEventPolicy`:
+- `STALE`: mark stale + diagnostics.
+- `FAIL`: raise desync/failure error path.
+- `IGNORE`: only for declared harmless cases, still add diagnostics.
+4. Return reducer result envelope with `applied`, changed domains, cause, optional event type/summary.
+5. Recompute indexes as needed and run invariants before candidate snapshot is publishable.
 
 Validation for Step 7:
-
-    Tests for each policy mode on UnknownEvent input.
-    Tests verifying metadata events are intentional no-op/diagnostic, not accidental fallthrough.
-    Tests ensuring invariant failure routes correctly based on invariant failure policy.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- pytest -q tests/... (root reducer + policy)
+1. Tests for each policy mode on `UnknownEvent` input.
+2. Tests verifying metadata events are intentional no-op/diagnostic, not accidental fallthrough.
+3. Tests ensuring invariant failure routes correctly based on invariant failure policy.
+4. `devenv shell -- ruff check .`
+5. `devenv shell -- ruff format --check .`
+6. `devenv shell -- pytest -q tests/...` (root reducer + policy)
 
 Pass criteria:
+1. Unknown impactful input cannot silently preserve `LIVE` claim.
+2. Dispatch is explicit and exhaustive for supported variants.
 
-    Unknown impactful input cannot silently preserve LIVE claim.
-    Dispatch is explicit and exhaustive for supported variants.
-
-11. Step 8: Implement Bootstrap Query + Normalization Pipeline
+## 11. Step 8: Implement Bootstrap Query + Normalization Pipeline
 
 Implementation work:
-
-    Implement _runtime/bootstrap.py orchestrator:
-
-    normalize config
-    open NiriConnectionBundle
-    start event buffering immediately
-    run mandatory query suite
-    normalize to BootstrapPayload
-    build initial snapshot
-    replay buffered events through root reducer
-    validate invariants
-    publish first LIVE snapshot
-
-    Mandatory query requests via NiriClient.request(...):
-
-    OutputsRequest
-    WorkspacesRequest
-    WindowsRequest
-    FocusedOutputRequest
-    FocusedWindowRequest
-    KeyboardLayoutsRequest
-    OverviewStateRequest
-
-    Optional queries:
-
-    VersionRequest (and any clearly documented query-only surfaces)
-
-    Normalize exact reply shapes from niri_pypc response variants:
-
-    outputs: dict[str, Output]
-    workspaces/windows: list payloads
-    focused output/window: nullable
-    keyboard layouts: object with names and current_idx
-    overview: object with is_open
+1. Implement `_runtime/bootstrap.py` orchestrator:
+- normalize config
+- open `NiriConnectionBundle`
+- start event buffering immediately
+- run mandatory query suite
+- normalize to `BootstrapPayload`
+- build initial snapshot
+- replay buffered events through root reducer
+- validate invariants
+- publish first `LIVE` snapshot
+2. Mandatory query requests via `NiriClient.request(...)`:
+- `OutputsRequest`
+- `WorkspacesRequest`
+- `WindowsRequest`
+- `FocusedOutputRequest`
+- `FocusedWindowRequest`
+- `KeyboardLayoutsRequest`
+- `OverviewStateRequest`
+3. Optional queries:
+- `VersionRequest` (and any clearly documented query-only surfaces)
+4. Normalize exact reply shapes from `niri_pypc` response variants:
+- outputs: dict[str, Output]
+- workspaces/windows: list payloads
+- focused output/window: nullable
+- keyboard layouts: object with `names` and `current_idx`
+- overview: object with `is_open`
 
 Validation for Step 8:
-
-    Tests for each query-normalization branch and mismatch failure (BootstrapError).
-    Race-closure test proving no first LIVE publication before replay of buffered events.
-    Test where unknown event appears during bootstrap window and policy is enforced.
-    Test for bundle cleanup on bootstrap failure path.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- ty check .
-    devenv shell -- pytest -q tests/... (bootstrap)
+1. Tests for each query-normalization branch and mismatch failure (`BootstrapError`).
+2. Race-closure test proving no first `LIVE` publication before replay of buffered events.
+3. Test where unknown event appears during bootstrap window and policy is enforced.
+4. Test for bundle cleanup on bootstrap failure path.
+5. `devenv shell -- ruff check .`
+6. `devenv shell -- ruff format --check .`
+7. `devenv shell -- ty check .`
+8. `devenv shell -- pytest -q tests/...` (bootstrap)
 
 Pass criteria:
+1. First externally visible live snapshot is fully replay-closed.
+2. Bootstrap failures are explicit and typed.
 
-    First externally visible live snapshot is fully replay-closed.
-    Bootstrap failures are explicit and typed.
-
-12. Step 9: Implement Store Publication and Subscription Runtime
+## 12. Step 9: Implement Store Publication and Subscription Runtime
 
 Implementation work:
-
-    Implement _runtime/store.py and _runtime/broadcaster.py with one task owning mutation/publication.
-    Ensure each publication emits immutable snapshot + ChangeSet.
-    Implement subscriber registration with bounded per-subscriber queue.
-    Overflow policy handling:
-
-    drop-oldest mode at store layer when configured.
-    fail-fast overflow path with WatchOverflowError/lifecycle consequences.
-
-    Implement runtime lifecycle methods:
-
-    snapshot()
-    subscribe()
-    refresh() hook integration point
-    close() idempotent resource shutdown
+1. Implement `_runtime/store.py` and `_runtime/broadcaster.py` with one task owning mutation/publication.
+2. Ensure each publication emits immutable snapshot + `ChangeSet`.
+3. Implement subscriber registration with bounded per-subscriber queue.
+4. Overflow policy handling:
+- drop-oldest mode at store layer when configured.
+- fail-fast overflow path with `WatchOverflowError`/lifecycle consequences.
+5. Implement runtime lifecycle methods:
+- `snapshot()`
+- `subscribe()`
+- `refresh()` hook integration point
+- `close()` idempotent resource shutdown
 
 Validation for Step 9:
-
-    Concurrency tests proving no torn/partial snapshot visibility.
-    Subscription tests for multiple subscribers, slow subscriber, and overflow modes.
-    Close semantics tests: idempotent close, subscriber termination, pending waits/watches termination behavior.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- pytest -q tests/... (store/broadcaster)
+1. Concurrency tests proving no torn/partial snapshot visibility.
+2. Subscription tests for multiple subscribers, slow subscriber, and overflow modes.
+3. Close semantics tests: idempotent close, subscriber termination, pending waits/watches termination behavior.
+4. `devenv shell -- ruff check .`
+5. `devenv shell -- ruff format --check .`
+6. `devenv shell -- pytest -q tests/...` (store/broadcaster)
 
 Pass criteria:
+1. Publication revision is monotonic and atomic.
+2. Overflow behavior matches configured policy exactly.
 
-    Publication revision is monotonic and atomic.
-    Overflow behavior matches configured policy exactly.
-
-13. Step 10: Implement Wait/Watch APIs
+## 13. Step 10: Implement Wait/Watch APIs
 
 Implementation work:
-
-    Implement _runtime/waiters.py with:
-
-    wait_until(predicate, timeout=None, health_policy=...)
-
-    Implement watch(selector) that yields initial selector value then value changes only.
-    Enforce health gating:
-
-    LIVE_ONLY: stale snapshots do not satisfy waits.
-    ALLOW_STALE: stale snapshots may satisfy.
-
-    Ensure timeout raises SelectorWaitError and preserves cause context.
-    Ensure cancellation propagates cleanly and leaves runtime healthy.
+1. Implement `_runtime/waiters.py` with:
+- `wait_until(predicate, timeout=None, health_policy=...)`
+2. Implement `watch(selector)` that yields initial selector value then value changes only.
+3. Enforce health gating:
+- `LIVE_ONLY`: stale snapshots do not satisfy waits.
+- `ALLOW_STALE`: stale snapshots may satisfy.
+4. Ensure timeout raises `SelectorWaitError` and preserves cause context.
+5. Ensure cancellation propagates cleanly and leaves runtime healthy.
 
 Validation for Step 10:
-
-    Wait immediate-success test against current snapshot.
-    Wait timeout test.
-    Wait cancellation test.
-    Health policy gating tests.
-    Watch equality-change suppression tests.
-    Watch termination-on-close test.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- pytest -q tests/... (wait/watch)
+1. Wait immediate-success test against current snapshot.
+2. Wait timeout test.
+3. Wait cancellation test.
+4. Health policy gating tests.
+5. Watch equality-change suppression tests.
+6. Watch termination-on-close test.
+7. `devenv shell -- ruff check .`
+8. `devenv shell -- ruff format --check .`
+9. `devenv shell -- pytest -q tests/...` (wait/watch)
 
 Pass criteria:
+1. Wait/watch are event-driven (no busy loop).
+2. Timeout/cancel/close semantics are deterministic.
 
-    Wait/watch are event-driven (no busy loop).
-    Timeout/cancel/close semantics are deterministic.
-
-14. Step 11: Implement Resync/Recovery Coordinator
+## 14. Step 11: Implement Resync/Recovery Coordinator
 
 Implementation work:
-
-    Implement _runtime/resync.py coordinating stale/resync transitions.
-    Define stale triggers from spec:
-
-    unknown impactful event under stale policy
-    invariant failure under stale policy
-    stream terminal/overflow failures
-    manual refresh
-
-    Implement ResyncPolicy behavior:
-
-    MANUAL: stale until explicit refresh().
-    AUTO: transition STALE -> RESYNCING, run coordinated re-bootstrap.
-
-    On successful re-bootstrap, publish coherent new LIVE snapshot.
-    On failed auto recovery, transition per configured strategy (STALE/FAILED) with diagnostics.
+1. Implement `_runtime/resync.py` coordinating stale/resync transitions.
+2. Define stale triggers from spec:
+- unknown impactful event under stale policy
+- invariant failure under stale policy
+- stream terminal/overflow failures
+- manual refresh
+3. Implement `ResyncPolicy` behavior:
+- `MANUAL`: stale until explicit `refresh()`.
+- `AUTO`: transition `STALE -> RESYNCING`, run coordinated re-bootstrap.
+4. On successful re-bootstrap, publish coherent new `LIVE` snapshot.
+5. On failed auto recovery, transition per configured strategy (`STALE`/`FAILED`) with diagnostics.
 
 Validation for Step 11:
-
-    Tests for manual policy staying stale until refresh().
-    Tests for auto policy successful recovery path.
-    Tests for auto recovery failure diagnostics and resulting state.
-    Tests preserving immutability of pre-recovery snapshots.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- pytest -q tests/... (resync)
+1. Tests for manual policy staying stale until `refresh()`.
+2. Tests for auto policy successful recovery path.
+3. Tests for auto recovery failure diagnostics and resulting state.
+4. Tests preserving immutability of pre-recovery snapshots.
+5. `devenv shell -- ruff check .`
+6. `devenv shell -- ruff format --check .`
+7. `devenv shell -- pytest -q tests/...` (resync)
 
 Pass criteria:
+1. Recovery behavior is policy-accurate and observable.
+2. No mutation of historical snapshots.
 
-    Recovery behavior is policy-accurate and observable.
-    No mutation of historical snapshots.
-
-15. Step 12: Implement Selector Modules and Public Exports
+## 15. Step 12: Implement Selector Modules and Public Exports
 
 Implementation work:
-
-    Implement pure selectors in selectors/ modules:
-
-    outputs
-    workspaces
-    windows
-    focus
-    keyboard
-    overview
-    aggregates
-
-    Return stable, documented types.
-    Ensure missing entities return None/empty collection defaults as specified.
-    Document freshness boundaries for refresh-backed/query-only domains.
-    Wire public exports through selectors/__init__.py and top-level niri_state/__init__.py.
+1. Implement pure selectors in `selectors/` modules:
+- outputs
+- workspaces
+- windows
+- focus
+- keyboard
+- overview
+- aggregates
+2. Return stable, documented types.
+3. Ensure missing entities return `None`/empty collection defaults as specified.
+4. Document freshness boundaries for refresh-backed/query-only domains.
+5. Wire public exports through `selectors/__init__.py` and top-level `niri_state/__init__.py`.
 
 Validation for Step 12:
-
-    Unit tests for selector correctness and missing-entity semantics.
-    Tests verifying selectors are pure (no mutation side effects).
-    API import tests for expected public symbols.
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- ty check .
-    devenv shell -- pytest -q tests/... (selectors/public API)
+1. Unit tests for selector correctness and missing-entity semantics.
+2. Tests verifying selectors are pure (no mutation side effects).
+3. API import tests for expected public symbols.
+4. `devenv shell -- ruff check .`
+5. `devenv shell -- ruff format --check .`
+6. `devenv shell -- ty check .`
+7. `devenv shell -- pytest -q tests/...` (selectors/public API)
 
 Pass criteria:
+1. Public selector API is stable and documented.
+2. Freshness semantics are explicit and accurate.
 
-    Public selector API is stable and documented.
-    Freshness semantics are explicit and accurate.
-
-16. Step 13: Integration and Replay Determinism Harness
+## 16. Step 13: Integration and Replay Determinism Harness
 
 Implementation work:
-
-    Add integration tests for full bootstrap + event stream + replay convergence.
-    Add replay-trace harness (bootstrap payload + ordered events + expected assertions).
-    Ensure replay path calls same root reducer logic as live runtime.
-    Add edge-case traces:
-
-    replace-all then incremental updates
-    unknown event stale/fail cases
-    multi-output focus/workspace updates
+1. Add integration tests for full bootstrap + event stream + replay convergence.
+2. Add replay-trace harness (bootstrap payload + ordered events + expected assertions).
+3. Ensure replay path calls same root reducer logic as live runtime.
+4. Add edge-case traces:
+- replace-all then incremental updates
+- unknown event stale/fail cases
+- multi-output focus/workspace updates
 
 Validation for Step 13:
-
-    Determinism tests: same trace run twice yields identical outcome.
-    Integration tests for stream closure and recovery transitions.
-    Regression tests for previously fixed bugs (add trace fixtures as permanent guardrails).
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- pytest -q tests/integration tests/replay
+1. Determinism tests: same trace run twice yields identical outcome.
+2. Integration tests for stream closure and recovery transitions.
+3. Regression tests for previously fixed bugs (add trace fixtures as permanent guardrails).
+4. `devenv shell -- ruff check .`
+5. `devenv shell -- ruff format --check .`
+6. `devenv shell -- pytest -q tests/integration tests/replay`
 
 Pass criteria:
+1. Replay determinism is proven.
+2. Integration converges to correct snapshots under race and failure cases.
 
-    Replay determinism is proven.
-    Integration converges to correct snapshots under race and failure cases.
-
-17. Step 14: API Polish, Docs, and Packaging Finish
+## 17. Step 14: API Polish, Docs, and Packaging Finish
 
 Implementation work:
-
-    Finalize niri_state.__init__ ergonomic exports.
-    Add package docs describing:
-
-    architecture boundary (_core vs _runtime)
-    lifecycle/health semantics
-    freshness model
-    unknown-event policy implications
-    wait/watch usage
-
-    Ensure versioning metadata exists and aligns with packaging.
-    Confirm FINAL_CONCEPT/FINAL_SPEC terminology matches implementation names.
+1. Finalize `niri_state.__init__` ergonomic exports.
+2. Add package docs describing:
+- architecture boundary (`_core` vs `_runtime`)
+- lifecycle/health semantics
+- freshness model
+- unknown-event policy implications
+- wait/watch usage
+3. Ensure versioning metadata exists and aligns with packaging.
+4. Confirm `FINAL_CONCEPT`/`FINAL_SPEC` terminology matches implementation names.
 
 Validation for Step 14:
-
-    Doc examples import and run in tests (doctest or dedicated snippet tests).
-    Full quality gate run (see section 18).
+1. Doc examples import and run in tests (doctest or dedicated snippet tests).
+2. Full quality gate run (see section 18).
 
 Pass criteria:
+1. API and docs are coherent for first-time users.
+2. No public naming drift from final spec.
 
-    API and docs are coherent for first-time users.
-    No public naming drift from final spec.
-
-18. Mandatory Validation Matrix (Per Step + Final)
+## 18. Mandatory Validation Matrix (Per Step + Final)
 
 Run these every step where applicable:
-
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- ty check . when typed interfaces/signatures/public models change.
-    devenv shell -- pytest -q <targeted-tests> for just-implemented behavior.
+1. `devenv shell -- ruff check .`
+2. `devenv shell -- ruff format --check .`
+3. `devenv shell -- ty check .` when typed interfaces/signatures/public models change.
+4. `devenv shell -- pytest -q <targeted-tests>` for just-implemented behavior.
 
 Before declaring implementation complete, run:
-
-    devenv shell -- uv sync --extra dev (if not already run in current session before tests)
-    devenv shell -- ruff check .
-    devenv shell -- ruff format --check .
-    devenv shell -- ty check .
-    devenv shell -- pytest -q
+1. `devenv shell -- uv sync --extra dev` (if not already run in current session before tests)
+2. `devenv shell -- ruff check .`
+3. `devenv shell -- ruff format --check .`
+4. `devenv shell -- ty check .`
+5. `devenv shell -- pytest -q`
 
 Final pass criteria:
+1. All commands pass with zero failures.
+2. No xfail/skip added to hide failing behavior without documented rationale.
+3. Unknown event and invariant-failure paths are covered by explicit tests.
+4. Bootstrap race closure is covered by explicit integration test.
 
-    All commands pass with zero failures.
-    No xfail/skip added to hide failing behavior without documented rationale.
-    Unknown event and invariant-failure paths are covered by explicit tests.
-    Bootstrap race closure is covered by explicit integration test.
-
-19. Intern Handoff Checklist
+## 19. Intern Handoff Checklist
 
 The implementation is done only when all items are true:
-
-    Module tree matches FINAL_SPEC structure.
-    NiriState.connect() performs full bootstrap with event buffering + replay before first LIVE publication.
-    Reducers are deterministic and pure.
-    Invariants run on initial build and post-reduction publish path.
-    Unknown event behavior is policy-driven (STALE/FAIL/IGNORE) and audited.
-    Store publication is atomic and single-owner.
-    snapshot(), subscribe(), watch(), wait_until(), refresh(), close() semantics are tested.
-    Resync policy behavior (MANUAL and AUTO) is implemented and tested.
-    Replay-trace tests prove deterministic outcomes.
-    Ruff, Ty, and pytest full suite all pass cleanly.
+1. Module tree matches `FINAL_SPEC` structure.
+2. `NiriState.connect()` performs full bootstrap with event buffering + replay before first `LIVE` publication.
+3. Reducers are deterministic and pure.
+4. Invariants run on initial build and post-reduction publish path.
+5. Unknown event behavior is policy-driven (`STALE`/`FAIL`/`IGNORE`) and audited.
+6. Store publication is atomic and single-owner.
+7. `snapshot()`, `subscribe()`, `watch()`, `wait_until()`, `refresh()`, `close()` semantics are tested.
+8. Resync policy behavior (`MANUAL` and `AUTO`) is implemented and tested.
+9. Replay-trace tests prove deterministic outcomes.
+10. Ruff, Ty, and pytest full suite all pass cleanly.
 
 If any checklist item fails, the project is not complete.
