@@ -11,3 +11,4 @@
 - [x] Final spec coherence pass and tracking updates.
 - [x] Study final concept/spec and `.context/niri-pypc` dependency implementation/tests.
 - [x] Write TOC-first, step-by-step `FINAL_IMPLEMENTATION_GUIDE.md` with per-step validation gates.
+- [x] Expand `FINAL_IMPLEMENTATION_GUIDE.md` steps 4-14 + final validation/checklist to the same depth as steps 1-3.

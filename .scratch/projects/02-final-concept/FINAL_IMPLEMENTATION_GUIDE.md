@@ -1399,359 +1399,749 @@ devenv shell -- pytest -q tests/core/models/test_health.py
 2. Every illegal transition raises `StateLifecycleError` with correct context.
 3. Transition reasons appear in error messages.
 
+---
 
-# Step 4: Implement Snapshot Builder and Index Construction
+## 7. Step 4: Snapshot Builder and Index Construction
 
-Implementation work:
-1. Implement `BootstrapPayload` model (likely in bootstrap/runtime layer with core-compatible shape).
-2. Implement `_core/snapshot_builder.py::build_initial_snapshot(...)`.
-3. Construct maps:
-- outputs keyed by output name.
-- workspaces keyed by workspace id.
-- windows keyed by window id.
-4. Build indexes:
-- `workspaces_by_output`
-- `windows_by_workspace`
-- `active_workspace_by_output`
-5. Derive focus pointers from focused output/window payloads and inferred workspace relationship.
-6. Derive keyboard `current_name` safely with index bounds checks.
-7. Initialize overview/diagnostics/compatibility metadata.
+### 7.1 Implement `build_initial_snapshot(...)`
 
-Validation for Step 4:
-1. Tests for nominal bootstrap mapping.
-2. Tests for null-focused output/window cases.
-3. Tests where focused window/workspace references missing entities (must follow defined policy).
-4. Tests for keyboard out-of-range `current_idx` behavior.
-5. `devenv shell -- ruff check .`
-6. `devenv shell -- ruff format --check .`
-7. `devenv shell -- ty check .`
+Create `_core/snapshot_builder.py` and implement:
 
-Pass criteria:
-1. Snapshot build is deterministic for equivalent payload input.
-2. Derived indexes match source entities exactly.
+```python
+from __future__ import annotations
 
-## 8. Step 5: Implement Invariant Engine
+from niri_state._core.models.bootstrap_payload import BootstrapPayload
+from niri_state._core.models.draft import DraftState
+from niri_state._core.models.entities import (
+    KeyboardState,
+    OutputState,
+    OverviewState,
+    WindowState,
+    WorkspaceState,
+)
+from niri_state._core.models.health import HealthState
+from niri_state._core.models.snapshot import CompatibilityInfo, DiagnosticsInfo
 
-Implementation work:
-1. Implement `_core/invariants.py` with explicit checks:
-- key identity coherence.
-- referential integrity across workspace/output/window links.
-- focus pointer validity when non-null.
-- one active workspace per output consistency.
-- index completeness, no duplicates, no dangling references.
-2. Return structured violations or raise `InvariantError` depending on policy call-site.
-3. Add helper for post-reducer invariant enforcement.
 
-Validation for Step 5:
-1. Unit tests with valid snapshots (no violations).
-2. Unit tests for each violation class individually.
-3. Unit tests for multiple simultaneous violations and deterministic message ordering.
-4. `devenv shell -- ruff check .`
-5. `devenv shell -- ruff format --check .`
-6. `devenv shell -- pytest -q tests/...` (invariant tests)
+def _derive_keyboard_current_name(layouts) -> str | None:
+    if layouts.current_idx < 0:
+        return None
+    if layouts.current_idx >= len(layouts.names):
+        return None
+    return layouts.names[layouts.current_idx]
 
-Pass criteria:
-1. Violations are precise and actionable.
-2. Invariant engine is pure and side-effect free.
 
-## 9. Step 6: Implement Domain Reducers
+def build_initial_draft(payload: BootstrapPayload) -> DraftState:
+    outputs = {
+        name: OutputState(output_name=name, protocol=output)
+        for name, output in payload.outputs.items()
+    }
+    workspaces = {
+        ws.id: WorkspaceState(workspace_id=ws.id, protocol=ws)
+        for ws in payload.workspaces
+    }
+    windows = {
+        win.id: WindowState(window_id=win.id, protocol=win)
+        for win in payload.windows
+    }
 
-Implementation work:
-1. Create reducers in `_core/reducers/`:
-- `windows.py`
-- `workspaces.py`
-- `keyboard.py`
-- `overview.py`
-2. Windows reducer coverage:
-- `WindowsChangedEvent` (replace-all)
-- `WindowOpenedOrChangedEvent` (upsert)
-- `WindowClosedEvent`
-- `WindowFocusChangedEvent`
-- `WindowUrgencyChangedEvent`
-- `WindowFocusTimestampChangedEvent`
-- `WindowLayoutsChangedEvent`
-3. Workspaces reducer coverage:
-- `WorkspacesChangedEvent` (replace-all)
-- `WorkspaceActivatedEvent`
-- `WorkspaceActiveWindowChangedEvent`
-- `WorkspaceUrgencyChangedEvent`
-4. Keyboard reducer coverage:
-- `KeyboardLayoutsChangedEvent`
-- `KeyboardLayoutSwitchedEvent`
-5. Overview reducer coverage:
-- `OverviewOpenedOrClosedEvent`
+    focused_output_name = payload.focused_output.name if payload.focused_output else None
+    focused_window_id = payload.focused_window.id if payload.focused_window else None
 
-Validation for Step 6:
-1. Unit tests for each handled event variant, including no-op-on-no-change behavior where expected.
-2. Tests proving replace-all events overwrite stale state completely.
-3. Tests for deterministic conflict resolution order where multiple related updates occur.
-4. `devenv shell -- ruff check .`
-5. `devenv shell -- ruff format --check .`
-6. `devenv shell -- ty check .`
-7. `devenv shell -- pytest -q tests/...` (reducers)
+    focused_workspace_id = None
+    if payload.focused_window is not None:
+        focused_workspace_id = payload.focused_window.workspace_id
+    if focused_workspace_id is None and focused_output_name is not None:
+        for ws in payload.workspaces:
+            if ws.output == focused_output_name and ws.is_focused:
+                focused_workspace_id = ws.id
+                break
 
-Pass criteria:
-1. All mandatory event variants are handled and tested.
-2. Reducers remain pure (no IO, no clocks, no locks, no async).
+    keyboard = KeyboardState(
+        protocol=payload.keyboard_layouts,
+        current_name=_derive_keyboard_current_name(payload.keyboard_layouts),
+    )
+    overview = OverviewState(is_open=payload.overview.is_open)
 
-## 10. Step 7: Implement Root Reducer + Unknown Event Policy
+    return DraftState(
+        outputs=outputs,
+        workspaces=workspaces,
+        windows=windows,
+        focused_output_name=focused_output_name,
+        focused_workspace_id=focused_workspace_id,
+        focused_window_id=focused_window_id,
+        keyboard=keyboard,
+        overview=overview,
+        health=HealthState.BOOTSTRAPPING,
+        diagnostics=DiagnosticsInfo(),
+        compatibility=CompatibilityInfo(compositor_version=payload.compositor_version),
+    )
+```
 
-Implementation work:
-1. Implement `_core/reducers/root.py` explicit dispatch on concrete event model classes from `niri_pypc.types.generated.event`.
-2. Handle metadata events explicitly:
-- `ConfigLoadedEvent`
-- `ScreenshotCapturedEvent`
-3. Implement unknown/unimplemented impactful event flow using `UnknownEventPolicy`:
-- `STALE`: mark stale + diagnostics.
-- `FAIL`: raise desync/failure error path.
-- `IGNORE`: only for declared harmless cases, still add diagnostics.
-4. Return reducer result envelope with `applied`, changed domains, cause, optional event type/summary.
-5. Recompute indexes as needed and run invariants before candidate snapshot is publishable.
+### 7.2 Key Rules
 
-Validation for Step 7:
-1. Tests for each policy mode on `UnknownEvent` input.
-2. Tests verifying metadata events are intentional no-op/diagnostic, not accidental fallthrough.
-3. Tests ensuring invariant failure routes correctly based on invariant failure policy.
-4. `devenv shell -- ruff check .`
-5. `devenv shell -- ruff format --check .`
-6. `devenv shell -- pytest -q tests/...` (root reducer + policy)
+1. Do not run invariants in the builder itself if you need draft mutation first; run invariants immediately after builder output in orchestrator.
+2. Replace-all identity is map-key-based: output name, workspace id, window id.
+3. Focus pointers may be `None`; never synthesize fake ids.
 
-Pass criteria:
-1. Unknown impactful input cannot silently preserve `LIVE` claim.
-2. Dispatch is explicit and exhaustive for supported variants.
+### 7.3 Tests for Step 4
 
-## 11. Step 8: Implement Bootstrap Query + Normalization Pipeline
+1. `tests/core/test_snapshot_builder.py`:
+- builds maps with expected keys.
+- derives focus from focused window when available.
+- fallback focus derivation from focused workspace on focused output.
+- keyboard `current_idx` out of range yields `current_name is None`.
+- compatibility info carries version string.
+2. Add edge test: duplicate ids in bootstrap lists should deterministically keep the last element and log diagnostic decision (or fail, if you choose strict behavior; document choice).
 
-Implementation work:
-1. Implement `_runtime/bootstrap.py` orchestrator:
-- normalize config
-- open `NiriConnectionBundle`
-- start event buffering immediately
-- run mandatory query suite
-- normalize to `BootstrapPayload`
-- build initial snapshot
-- replay buffered events through root reducer
-- validate invariants
-- publish first `LIVE` snapshot
-2. Mandatory query requests via `NiriClient.request(...)`:
-- `OutputsRequest`
-- `WorkspacesRequest`
-- `WindowsRequest`
-- `FocusedOutputRequest`
-- `FocusedWindowRequest`
-- `KeyboardLayoutsRequest`
-- `OverviewStateRequest`
-3. Optional queries:
-- `VersionRequest` (and any clearly documented query-only surfaces)
-4. Normalize exact reply shapes from `niri_pypc` response variants:
-- outputs: dict[str, Output]
-- workspaces/windows: list payloads
-- focused output/window: nullable
-- keyboard layouts: object with `names` and `current_idx`
-- overview: object with `is_open`
+### 7.4 Validation
 
-Validation for Step 8:
-1. Tests for each query-normalization branch and mismatch failure (`BootstrapError`).
-2. Race-closure test proving no first `LIVE` publication before replay of buffered events.
-3. Test where unknown event appears during bootstrap window and policy is enforced.
-4. Test for bundle cleanup on bootstrap failure path.
-5. `devenv shell -- ruff check .`
-6. `devenv shell -- ruff format --check .`
-7. `devenv shell -- ty check .`
-8. `devenv shell -- pytest -q tests/...` (bootstrap)
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- ty check .
+devenv shell -- pytest -q tests/core/test_snapshot_builder.py
+```
 
-Pass criteria:
-1. First externally visible live snapshot is fully replay-closed.
-2. Bootstrap failures are explicit and typed.
+**Pass criteria:**
+1. Snapshot builder output is deterministic.
+2. Derived fields match explicit rules.
 
-## 12. Step 9: Implement Store Publication and Subscription Runtime
+---
 
-Implementation work:
-1. Implement `_runtime/store.py` and `_runtime/broadcaster.py` with one task owning mutation/publication.
-2. Ensure each publication emits immutable snapshot + `ChangeSet`.
-3. Implement subscriber registration with bounded per-subscriber queue.
-4. Overflow policy handling:
-- drop-oldest mode at store layer when configured.
-- fail-fast overflow path with `WatchOverflowError`/lifecycle consequences.
-5. Implement runtime lifecycle methods:
-- `snapshot()`
-- `subscribe()`
-- `refresh()` hook integration point
-- `close()` idempotent resource shutdown
+## 8. Step 5: Invariant Engine
 
-Validation for Step 9:
-1. Concurrency tests proving no torn/partial snapshot visibility.
-2. Subscription tests for multiple subscribers, slow subscriber, and overflow modes.
-3. Close semantics tests: idempotent close, subscriber termination, pending waits/watches termination behavior.
-4. `devenv shell -- ruff check .`
-5. `devenv shell -- ruff format --check .`
-6. `devenv shell -- pytest -q tests/...` (store/broadcaster)
+### 8.1 Implement explicit invariant checks in `_core/invariants.py`
 
-Pass criteria:
-1. Publication revision is monotonic and atomic.
-2. Overflow behavior matches configured policy exactly.
+Required checks:
+1. Map key matches wrapper identity field.
+2. `focused_workspace_id` exists when non-null.
+3. `focused_window_id` exists when non-null.
+4. If focused window has workspace id, it matches `focused_workspace_id` (when both non-null).
+5. Workspace `active_window_id` references existing window when non-null.
+6. Window `workspace_id` references existing workspace when non-null.
+7. `workspaces_by_output` entries reference existing workspaces and workspace output matches key.
+8. `windows_by_workspace` entries reference existing windows and window workspace matches key.
+9. `active_workspace_by_output` points to existing workspace with matching output and `is_active=True`.
+10. Duplicate ids do not appear inside index tuples.
 
-## 13. Step 10: Implement Wait/Watch APIs
+Suggested API:
 
-Implementation work:
-1. Implement `_runtime/waiters.py` with:
-- `wait_until(predicate, timeout=None, health_policy=...)`
-2. Implement `watch(selector)` that yields initial selector value then value changes only.
-3. Enforce health gating:
-- `LIVE_ONLY`: stale snapshots do not satisfy waits.
-- `ALLOW_STALE`: stale snapshots may satisfy.
-4. Ensure timeout raises `SelectorWaitError` and preserves cause context.
-5. Ensure cancellation propagates cleanly and leaves runtime healthy.
+```python
+from __future__ import annotations
 
-Validation for Step 10:
-1. Wait immediate-success test against current snapshot.
-2. Wait timeout test.
-3. Wait cancellation test.
-4. Health policy gating tests.
-5. Watch equality-change suppression tests.
-6. Watch termination-on-close test.
-7. `devenv shell -- ruff check .`
-8. `devenv shell -- ruff format --check .`
-9. `devenv shell -- pytest -q tests/...` (wait/watch)
+from niri_state._core.models.snapshot import NiriSnapshot
 
-Pass criteria:
-1. Wait/watch are event-driven (no busy loop).
-2. Timeout/cancel/close semantics are deterministic.
 
-## 14. Step 11: Implement Resync/Recovery Coordinator
+def collect_invariant_violations(snapshot: NiriSnapshot) -> tuple[str, ...]:
+    violations: list[str] = []
+    ...
+    return tuple(violations)
 
-Implementation work:
-1. Implement `_runtime/resync.py` coordinating stale/resync transitions.
-2. Define stale triggers from spec:
-- unknown impactful event under stale policy
-- invariant failure under stale policy
-- stream terminal/overflow failures
-- manual refresh
-3. Implement `ResyncPolicy` behavior:
-- `MANUAL`: stale until explicit `refresh()`.
-- `AUTO`: transition `STALE -> RESYNCING`, run coordinated re-bootstrap.
-4. On successful re-bootstrap, publish coherent new `LIVE` snapshot.
-5. On failed auto recovery, transition per configured strategy (`STALE`/`FAILED`) with diagnostics.
 
-Validation for Step 11:
-1. Tests for manual policy staying stale until `refresh()`.
-2. Tests for auto policy successful recovery path.
-3. Tests for auto recovery failure diagnostics and resulting state.
-4. Tests preserving immutability of pre-recovery snapshots.
-5. `devenv shell -- ruff check .`
-6. `devenv shell -- ruff format --check .`
-7. `devenv shell -- pytest -q tests/...` (resync)
+def assert_invariants(snapshot: NiriSnapshot) -> None:
+    violations = collect_invariant_violations(snapshot)
+    if violations:
+        from niri_state.errors import InvariantError
+        raise InvariantError(
+            "Snapshot invariants violated",
+            violations=violations,
+            revision=snapshot.revision,
+        )
+```
 
-Pass criteria:
-1. Recovery behavior is policy-accurate and observable.
-2. No mutation of historical snapshots.
+### 8.2 Policy handling contract
 
-## 15. Step 12: Implement Selector Modules and Public Exports
+Invariant engine stays policy-agnostic. Policy (`FAIL` vs `STALE`) is applied by runtime caller.
 
-Implementation work:
-1. Implement pure selectors in `selectors/` modules:
-- outputs
-- workspaces
-- windows
-- focus
-- keyboard
-- overview
-- aggregates
-2. Return stable, documented types.
-3. Ensure missing entities return `None`/empty collection defaults as specified.
-4. Document freshness boundaries for refresh-backed/query-only domains.
-5. Wire public exports through `selectors/__init__.py` and top-level `niri_state/__init__.py`.
+### 8.3 Tests for Step 5
 
-Validation for Step 12:
-1. Unit tests for selector correctness and missing-entity semantics.
-2. Tests verifying selectors are pure (no mutation side effects).
-3. API import tests for expected public symbols.
-4. `devenv shell -- ruff check .`
-5. `devenv shell -- ruff format --check .`
-6. `devenv shell -- ty check .`
-7. `devenv shell -- pytest -q tests/...` (selectors/public API)
+1. One test per invariant rule violation.
+2. One aggregated test with multiple violations verifies deterministic message order.
+3. One valid snapshot test asserts no violations.
 
-Pass criteria:
-1. Public selector API is stable and documented.
-2. Freshness semantics are explicit and accurate.
+### 8.4 Validation
 
-## 16. Step 13: Integration and Replay Determinism Harness
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- pytest -q tests/core/test_invariants.py
+```
 
-Implementation work:
-1. Add integration tests for full bootstrap + event stream + replay convergence.
-2. Add replay-trace harness (bootstrap payload + ordered events + expected assertions).
-3. Ensure replay path calls same root reducer logic as live runtime.
-4. Add edge-case traces:
-- replace-all then incremental updates
-- unknown event stale/fail cases
-- multi-output focus/workspace updates
+**Pass criteria:**
+1. Violations are specific and stable.
+2. Valid snapshots pass with zero noise.
 
-Validation for Step 13:
-1. Determinism tests: same trace run twice yields identical outcome.
-2. Integration tests for stream closure and recovery transitions.
-3. Regression tests for previously fixed bugs (add trace fixtures as permanent guardrails).
-4. `devenv shell -- ruff check .`
-5. `devenv shell -- ruff format --check .`
-6. `devenv shell -- pytest -q tests/integration tests/replay`
+---
 
-Pass criteria:
-1. Replay determinism is proven.
-2. Integration converges to correct snapshots under race and failure cases.
+## 9. Step 6: Domain Reducers
 
-## 17. Step 14: API Polish, Docs, and Packaging Finish
+### 9.1 Reducer signatures
 
-Implementation work:
-1. Finalize `niri_state.__init__` ergonomic exports.
-2. Add package docs describing:
-- architecture boundary (`_core` vs `_runtime`)
-- lifecycle/health semantics
-- freshness model
-- unknown-event policy implications
-- wait/watch usage
-3. Ensure versioning metadata exists and aligns with packaging.
-4. Confirm `FINAL_CONCEPT`/`FINAL_SPEC` terminology matches implementation names.
+Use a consistent signature pattern:
 
-Validation for Step 14:
-1. Doc examples import and run in tests (doctest or dedicated snippet tests).
-2. Full quality gate run (see section 18).
+```python
+def apply_<domain>_event(draft: DraftState, event: <EventType>) -> bool:
+    """Mutate draft. Return True if state changed."""
+```
 
-Pass criteria:
-1. API and docs are coherent for first-time users.
-2. No public naming drift from final spec.
+Return value drives `changed_domains` accuracy.
 
-## 18. Mandatory Validation Matrix (Per Step + Final)
+### 9.2 `windows.py`
 
-Run these every step where applicable:
+Implement handlers for:
+1. `WindowsChangedEvent`: full replacement of window map.
+2. `WindowOpenedOrChangedEvent`: upsert window by id.
+3. `WindowClosedEvent`: remove window id if present.
+4. `WindowFocusChangedEvent`: update `focused_window_id`; update `focused_workspace_id` from target window.
+5. `WindowUrgencyChangedEvent`: patch `is_urgent`.
+6. `WindowFocusTimestampChangedEvent`: patch `focus_timestamp`.
+7. `WindowLayoutsChangedEvent`: patch per-window `layout` from `changes` list.
+
+Use `model_copy(update=...)` to keep wrapper models frozen:
+
+```python
+updated_protocol = old.protocol.model_copy(update={"is_urgent": event.urgent})
+draft.windows[event.id] = old.model_copy(update={"protocol": updated_protocol})
+```
+
+### 9.3 `workspaces.py`
+
+Implement handlers for:
+1. `WorkspacesChangedEvent`: full replacement.
+2. `WorkspaceActivatedEvent`: set target workspace `is_active=True`; clear `is_active` from others on same output; if `focused=True`, update `is_focused` and `draft.focused_workspace_id`.
+3. `WorkspaceActiveWindowChangedEvent`: patch target workspace `active_window_id`.
+4. `WorkspaceUrgencyChangedEvent`: patch `is_urgent`.
+
+### 9.4 `keyboard.py`
+
+1. `KeyboardLayoutsChangedEvent`: replace protocol payload; recompute `current_name` with bounds checks.
+2. `KeyboardLayoutSwitchedEvent`: patch `current_idx`; recompute `current_name`.
+
+### 9.5 `overview.py`
+
+1. `OverviewOpenedOrClosedEvent`: set `overview.is_open`.
+
+### 9.6 Tests for Step 6
+
+1. Variant-by-variant tests.
+2. No-op tests when event does not change current value.
+3. Replace-all tests proving stale entities are removed.
+4. Cross-field consistency tests (focus/workspace coupling).
+
+### 9.7 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- ty check .
+devenv shell -- pytest -q tests/core/reducers/
+```
+
+**Pass criteria:**
+1. Every required variant is covered.
+2. Reducers are pure draft mutators (no IO/time).
+
+---
+
+## 10. Step 7: Root Reducer and Unknown Event Policy
+
+### 10.1 Implement root dispatch with `match/case`
+
+In `_core/reducers/root.py`, dispatch on concrete classes:
+
+```python
+match event:
+    case WindowsChangedEvent() as e:
+        ...
+    case WindowOpenedOrChangedEvent() as e:
+        ...
+    case WorkspacesChangedEvent() as e:
+        ...
+    case KeyboardLayoutsChangedEvent() as e:
+        ...
+    case OverviewOpenedOrClosedEvent() as e:
+        ...
+    case ConfigLoadedEvent() as e:
+        ...  # metadata no-op
+    case ScreenshotCapturedEvent() as e:
+        ...  # metadata no-op
+    case UnknownEvent() as e:
+        ...  # policy path
+    case _:
+        ...  # defensive stale/fail path
+```
+
+### 10.2 Define reducer result contract
+
+Create result model:
+
+```python
+class ReduceResult(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    applied: bool
+    changed_domains: frozenset[ChangedDomain]
+    cause: ChangeCause
+    event_type: str | None = None
+    event_summary: str | None = None
+```
+
+### 10.3 Unknown event policy semantics
+
+1. `STALE`:
+- increment diagnostics unknown counter.
+- set health `STALE`.
+- return `applied=True`, changed domains include `HEALTH`.
+2. `FAIL`:
+- raise `DesyncError(event_type=variant_name)`.
+3. `IGNORE`:
+- allow only if configured and event marked harmless category.
+- add diagnostic note.
+- `applied=False` unless diagnostics mutation is treated as change.
+
+### 10.4 Metadata events
+
+`ConfigLoadedEvent` and `ScreenshotCapturedEvent` must be explicit branches; add diagnostic breadcrumbs (optional), but do not mutate domain state maps.
+
+### 10.5 Tests for Step 7
+
+1. Dispatch coverage test for all known event classes.
+2. Unknown event tests for each policy.
+3. Metadata no-op tests.
+4. Fallback branch test for unexpected type.
+
+### 10.6 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- pytest -q tests/core/reducers/test_root.py
+```
+
+**Pass criteria:**
+1. Unknown impactful input never silently preserves `LIVE` in stale/fail policies.
+2. Root reducer result metadata is accurate.
+
+---
+
+## 11. Step 8: Bootstrap Pipeline
+
+### 11.1 Runtime bootstrap contract in `_runtime/bootstrap.py`
+
+Implement an orchestrator function used by `NiriState.connect()`:
+
+```python
+async def run_bootstrap(config: NiriStateConfig) -> BootstrapOutcome:
+    ...
+```
+
+`BootstrapOutcome` includes:
+1. opened `NiriConnectionBundle`
+2. first published snapshot candidate
+3. first `ChangeSet`
+4. any buffered/replayed event count metrics
+
+### 11.2 Exact sequence
+
+1. Normalize config (`normalize_config`).
+2. Open bundle (`await NiriConnectionBundle.open(config.pypc)`).
+3. Start event buffer task immediately:
+- read `bundle.events.next()` in a loop and append to buffer queue/list.
+- stop buffer only after query phase ends.
+4. Execute mandatory query suite via `bundle.client.request(...)` in fixed order.
+5. Validate response types; map to `BootstrapPayload`.
+6. Build draft via `build_initial_draft(payload)`.
+7. Freeze to revision `0` (bootstrap internal snapshot).
+8. Run invariants.
+9. Replay buffered events through root reducer into draft.
+10. Freeze replay-closed snapshot at revision `1` with `health=LIVE`.
+11. Run invariants again.
+12. Return outcome.
+
+### 11.3 Response normalization helpers
+
+Implement per-query helper functions that assert response variant type explicitly and raise `BootstrapError(query="...")` on mismatch.
+
+### 11.4 Failure behavior
+
+1. Any query failure: raise `BootstrapError` with chained cause.
+2. Ensure bundle closes on bootstrap failure.
+3. If buffer task fails, surface cause as bootstrap failure.
+
+### 11.5 Tests for Step 8
+
+1. Happy path test with mocked bundle + query responses + buffered events.
+2. Type mismatch tests for each mandatory query.
+3. Race-closure test: assert no `LIVE` snapshot before replay completion.
+4. Cleanup-on-failure test (bundle closed).
+5. Unknown event in buffer obeys policy.
+
+### 11.6 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- ty check .
+devenv shell -- pytest -q tests/runtime/test_bootstrap.py
+```
+
+**Pass criteria:**
+1. First externally visible `LIVE` snapshot is replay-closed.
+2. All bootstrap failures are typed and actionable.
+
+---
+
+## 12. Step 9: Store and Subscription Runtime
+
+### 12.1 Implement `NiriState` composition model
+
+`NiriState` should compose runtime pieces rather than embedding all logic in one class.
+
+Core responsibilities:
+1. Hold current snapshot.
+2. Own single mutation loop task.
+3. Own broadcaster/subscriber registry.
+4. Expose public API: `snapshot`, `subscribe`, `watch`, `wait_until`, `refresh`, `close`.
+
+### 12.2 Single-owner mutation loop
+
+In `_runtime/store.py`, create an internal event consumer task that:
+1. reads events from `bundle.events`.
+2. applies root reducer.
+3. freezes next snapshot with incremented revision.
+4. runs invariants.
+5. emits `ChangeSet` + snapshot to broadcaster.
+
+Only this loop may mutate runtime state.
+
+### 12.3 Broadcaster (`_runtime/broadcaster.py`)
+
+Implement:
+1. subscriber registration returning async iterator.
+2. bounded queue per subscriber.
+3. overflow policy:
+- `DROP_OLDEST`: drop oldest item then enqueue new item.
+- `FAIL_FAST`: raise `SubscriptionOverflowError`, mark runtime stale/failed per policy.
+4. shutdown signaling to all subscribers on close.
+
+### 12.4 `close()` behavior
+
+1. Idempotent.
+2. Cancel loop tasks.
+3. Close bundle.
+4. Transition health to `CLOSED` if legal.
+5. Terminate subscribers/watchers/waiters with explicit lifecycle signal.
+
+### 12.5 Tests for Step 9
+
+1. Revision monotonicity test.
+2. Atomic publish test (no partial snapshot).
+3. Multi-subscriber test.
+4. Slow subscriber overflow tests for both modes.
+5. Idempotent close test.
+6. Event stream terminal error propagation test.
+
+### 12.6 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- pytest -q tests/runtime/test_store.py tests/runtime/test_broadcaster.py
+```
+
+**Pass criteria:**
+1. Publication is atomic and monotonic.
+2. Overflow behavior is deterministic and policy-correct.
+
+---
+
+## 13. Step 10: Wait/Watch APIs
+
+### 13.1 Implement waits in `_runtime/waiters.py`
+
+`wait_until(predicate, timeout=None, health_policy=None)` behavior:
+1. evaluate immediately against current snapshot.
+2. if unsatisfied, subscribe to publication stream.
+3. on each publication, apply health gate then predicate.
+4. timeout => `WaitTimeoutError(timeout=...)`.
+5. close/cancel => propagate lifecycle/cancel cleanly.
+
+### 13.2 Implement watch
+
+`watch(selector)` behavior:
+1. emit selector value from current snapshot first.
+2. only emit again when `new_value != previous_value`.
+3. terminate on close.
+
+### 13.3 Selector-based helpers
+
+Optional helper:
+
+```python
+async def wait_for_selector(
+    selector: Callable[[NiriSnapshot], T],
+    predicate: Callable[[T], bool],
+    ...
+) -> T: ...
+```
+
+### 13.4 Tests for Step 10
+
+1. immediate success wait.
+2. timeout wait.
+3. cancellation wait.
+4. live-only gate rejects stale snapshots.
+5. allow-stale gate accepts stale snapshots.
+6. watch emits initial value once.
+7. watch emits only on equality changes.
+8. watch terminates on close.
+
+### 13.5 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- pytest -q tests/runtime/test_waiters.py
+```
+
+**Pass criteria:**
+1. Wait/watch are event-driven.
+2. Timeout and close semantics are correct and deterministic.
+
+---
+
+## 14. Step 11: Resync/Recovery Coordinator
+
+### 14.1 Implement `_runtime/resync.py`
+
+Key APIs:
+1. `mark_stale(reason: str, *, event_type: str | None = None)`
+2. `refresh()`
+3. `attempt_auto_resync()`
+
+### 14.2 Manual policy (`ResyncPolicy.MANUAL`)
+
+1. On stale trigger, transition `LIVE -> STALE`.
+2. Do not auto-bootstrap.
+3. Wait for `refresh()` call.
+4. `refresh()` executes bootstrap+replay and publishes new `LIVE` snapshot.
+
+### 14.3 Auto policy (`ResyncPolicy.AUTO`)
+
+1. On stale trigger, transition `LIVE -> STALE -> RESYNCING`.
+2. Retry bootstrap with bounded attempts and backoff.
+3. Success => publish `LIVE`.
+4. Failure => `STALE` or `FAILED` per policy decision.
+
+### 14.4 `refresh()` semantics in AUTO mode
+
+`refresh()` should force immediate resync attempt even in AUTO mode (review requirement from intro paragraph).
+
+### 14.5 Tests for Step 11
+
+1. manual stale remains stale until refresh.
+2. manual refresh success returns live.
+3. auto stale triggers resync loop.
+4. auto retry exhaustion path.
+5. refresh in AUTO short-circuits waiting and triggers immediate attempt.
+6. historical snapshots remain immutable across resync.
+
+### 14.6 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- pytest -q tests/runtime/test_resync.py
+```
+
+**Pass criteria:**
+1. Policy-specific behavior is exact.
+2. Resync transitions are legal and observable.
+
+---
+
+## 15. Step 12: Selector Modules and Public Exports
+
+### 15.1 Implement selector families
+
+In `selectors/`:
+1. `outputs.py`: output lookup/list helpers.
+2. `workspaces.py`: workspace lookup per output/active/focused helpers.
+3. `windows.py`: window lookup, windows by workspace, floating windows helpers.
+4. `focus.py`: focused output/workspace/window selectors.
+5. `keyboard.py`: layout names/current layout selectors.
+6. `overview.py`: open-state selector.
+7. `aggregates.py`: high-level combined views.
+
+### 15.2 Selector rules
+
+1. Pure functions only.
+2. Missing keys return `None`/empty tuple/list (document exact type).
+3. Do not expose mutable internals.
+4. For refresh-backed or query-only surfaces, add docstring freshness notes.
+
+### 15.3 Exports
+
+1. `selectors/__init__.py` exports stable selector symbols.
+2. `niri_state/__init__.py` exports `NiriState`, config enums, errors, and selector namespace.
+
+### 15.4 Tests for Step 12
+
+1. correctness tests per selector.
+2. missing-entity behavior tests.
+3. floating window selector tests (`workspace_id is None`).
+4. API import surface test.
+
+### 15.5 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- ty check .
+devenv shell -- pytest -q tests/selectors/
+```
+
+**Pass criteria:**
+1. Selector outputs are stable and predictable.
+2. Public exports match docs.
+
+---
+
+## 16. Step 13: Integration and Replay Harness
+
+### 16.1 Integration tests (`tests/integration/test_bootstrap_convergence.py`)
+
+Cover:
+1. bootstrap snapshot + replayed events converge to expected state.
+2. event stream EOF/terminal error transitions.
+3. stale->resync->live path.
+
+Use in-process Unix socket mock servers similar to `.context/niri-pypc/tests` patterns.
+
+### 16.2 Replay harness (`tests/integration/test_replay.py`)
+
+Define trace format:
+
+```python
+@dataclass(frozen=True)
+class ReplayTrace:
+    name: str
+    bootstrap: BootstrapPayload
+    events: tuple[object, ...]
+    expected_final_health: HealthState
+    expected_window_ids: tuple[int, ...]
+    ...
+```
+
+Replay runner:
+1. build draft from bootstrap.
+2. replay events through root reducer.
+3. freeze snapshot.
+4. assert expected fields.
+
+### 16.3 Determinism assertions
+
+For each trace, run replay twice and assert equality of serialized snapshot projection (ignore timestamp field or inject deterministic clock).
+
+### 16.4 Tests for Step 13
+
+1. replace-all + incremental sequence.
+2. unknown event stale policy trace.
+3. unknown event fail policy trace.
+4. multi-output active workspace correctness trace.
+5. floating-window persistence trace.
+
+### 16.5 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- pytest -q tests/integration/
+```
+
+**Pass criteria:**
+1. Replay uses same reducer path as runtime.
+2. Determinism is proven by repeated replay.
+
+---
+
+## 17. Step 14: API Polish and Packaging
+
+### 17.1 Public API consistency pass
+
+1. audit naming across docs/spec/code for exact match.
+2. ensure deprecated names are not exported.
+3. confirm error names: `WaitTimeoutError`, `SubscriptionOverflowError`.
+
+### 17.2 Documentation updates
+
+Update README and package docs with:
+1. connection lifecycle + health states.
+2. freshness semantics.
+3. unknown-event policy and stale behavior.
+4. wait/watch examples.
+5. resync policy examples.
+
+### 17.3 Packaging checks
+
+1. verify `pyproject.toml` metadata (`name = "niri-state"`, version source).
+2. ensure `src` layout install works.
+3. confirm editable install imports expected package.
+
+### 17.4 Tests for Step 14
+
+1. doc snippet tests (or simple smoke tests mirroring docs examples).
+2. import surface smoke test for key public symbols.
+
+### 17.5 Validation
+
+```bash
+devenv shell -- ruff check .
+devenv shell -- ruff format --check .
+devenv shell -- ty check .
+devenv shell -- pytest -q
+```
+
+**Pass criteria:**
+1. Full suite passes.
+2. Documentation examples remain valid.
+
+---
+
+## 18. Mandatory Validation Matrix
+
+Run on every behavior-changing step:
 1. `devenv shell -- ruff check .`
 2. `devenv shell -- ruff format --check .`
-3. `devenv shell -- ty check .` when typed interfaces/signatures/public models change.
-4. `devenv shell -- pytest -q <targeted-tests>` for just-implemented behavior.
+3. `devenv shell -- ty check .` when interfaces/types changed.
+4. targeted `devenv shell -- pytest -q ...`.
 
-Before declaring implementation complete, run:
-1. `devenv shell -- uv sync --extra dev` (if not already run in current session before tests)
+Before final merge/release:
+1. `devenv shell -- uv sync --extra dev`
 2. `devenv shell -- ruff check .`
 3. `devenv shell -- ruff format --check .`
 4. `devenv shell -- ty check .`
 5. `devenv shell -- pytest -q`
 
-Final pass criteria:
-1. All commands pass with zero failures.
-2. No xfail/skip added to hide failing behavior without documented rationale.
-3. Unknown event and invariant-failure paths are covered by explicit tests.
-4. Bootstrap race closure is covered by explicit integration test.
+Mandatory evidence to record in PR description:
+1. command outputs summary (pass/fail).
+2. list of replay traces executed.
+3. list of policy-mode tests executed (`STALE`, `FAIL`, `IGNORE`, `MANUAL`, `AUTO`).
 
-## 19. Intern Handoff Checklist
+---
 
-The implementation is done only when all items are true:
-1. Module tree matches `FINAL_SPEC` structure.
-2. `NiriState.connect()` performs full bootstrap with event buffering + replay before first `LIVE` publication.
-3. Reducers are deterministic and pure.
-4. Invariants run on initial build and post-reduction publish path.
-5. Unknown event behavior is policy-driven (`STALE`/`FAIL`/`IGNORE`) and audited.
-6. Store publication is atomic and single-owner.
-7. `snapshot()`, `subscribe()`, `watch()`, `wait_until()`, `refresh()`, `close()` semantics are tested.
-8. Resync policy behavior (`MANUAL` and `AUTO`) is implemented and tested.
-9. Replay-trace tests prove deterministic outcomes.
-10. Ruff, Ty, and pytest full suite all pass cleanly.
+## 19. Completion Checklist
 
-If any checklist item fails, the project is not complete.
+Implementation is complete only if all are true:
+1. package/module layout matches final spec.
+2. first published `LIVE` snapshot is replay-closed.
+3. reducers are deterministic and pure.
+4. invariant checks run on build and publish paths.
+5. unknown events are policy-handled and audited.
+6. publication path is single-owner and atomic.
+7. wait/watch/subscribe/refresh/close semantics are tested.
+8. manual and auto resync policies are implemented and tested.
+9. replay determinism harness exists and passes.
+10. full quality gate passes without suppressing failures.
+
+If any item is false, do not claim completion.
