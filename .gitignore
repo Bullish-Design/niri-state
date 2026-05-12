@@ -11,7 +11,8 @@ __pycache__/
 devenv.lock
 uv.lock
 .devenv.flake.nix
-
+.context/**
+# .scratch/**
 
 
 
