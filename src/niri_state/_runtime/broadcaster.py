@@ -3,17 +3,20 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from typing import Final, cast
 
 from niri_state._core.models.changes import ChangeSet
 from niri_state._core.models.snapshot import NiriSnapshot
 from niri_state.config import SubscriberOverflowPolicy
 from niri_state.errors import SubscriptionOverflowError
 
+_CLOSE_SENTINEL: Final[object] = object()
+
 
 @dataclass(slots=True)
 class Subscriber:
     id: int
-    queue: asyncio.Queue[tuple[NiriSnapshot, ChangeSet | None]]
+    queue: asyncio.Queue[tuple[NiriSnapshot, ChangeSet | None] | object]
     cancelled: bool = False
 
 
@@ -23,8 +26,18 @@ class Broadcaster:
         self._overflow_policy = overflow_policy
         self._subscribers: dict[int, Subscriber] = {}
         self._next_subscriber_id = 0
+        self._closed = False
 
     def subscribe(self) -> AsyncIterator[tuple[NiriSnapshot, ChangeSet | None]]:
+        if self._closed:
+
+            async def _empty() -> AsyncIterator[tuple[NiriSnapshot, ChangeSet | None]]:
+                if False:
+                    yield
+                return
+
+            return _empty()
+
         subscriber_id = self._next_subscriber_id
         self._next_subscriber_id += 1
         subscriber = Subscriber(
@@ -35,9 +48,13 @@ class Broadcaster:
 
         async def _iter() -> AsyncIterator[tuple[NiriSnapshot, ChangeSet | None]]:
             try:
-                while not subscriber.cancelled:
+                while True:
                     item = await subscriber.queue.get()
-                    yield item
+                    if item is _CLOSE_SENTINEL:
+                        break
+                    if subscriber.cancelled:
+                        break
+                    yield cast(tuple[NiriSnapshot, ChangeSet | None], item)
             finally:
                 self._subscribers.pop(subscriber_id, None)
 
@@ -66,6 +83,20 @@ class Broadcaster:
                     self._subscribers.pop(subscriber.id, None)
 
     async def close(self) -> None:
-        for subscriber in self._subscribers.values():
+        if self._closed:
+            return
+        self._closed = True
+        for subscriber in list(self._subscribers.values()):
             subscriber.cancelled = True
+            try:
+                subscriber.queue.put_nowait(_CLOSE_SENTINEL)
+            except asyncio.QueueFull:
+                try:
+                    subscriber.queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                try:
+                    subscriber.queue.put_nowait(_CLOSE_SENTINEL)
+                except asyncio.QueueFull:
+                    pass
         self._subscribers.clear()

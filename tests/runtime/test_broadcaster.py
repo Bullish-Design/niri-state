@@ -43,3 +43,15 @@ async def test_fail_fast_overflow_raises() -> None:
     await broadcaster.publish(_make_snapshot(1), _make_changeset(1))
     with pytest.raises(SubscriptionOverflowError):
         await broadcaster.publish(_make_snapshot(2), _make_changeset(2))
+
+
+async def test_close_wakes_waiting_subscriber() -> None:
+    broadcaster = Broadcaster(queue_size=1, overflow_policy=SubscriberOverflowPolicy.DROP_OLDEST)
+    stream = broadcaster.subscribe()
+
+    waiter = asyncio.create_task(stream.__anext__())
+    await asyncio.sleep(0)
+    await broadcaster.close()
+
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(waiter, timeout=0.5)

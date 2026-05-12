@@ -235,26 +235,15 @@ wheels = [
 
 [[package]]
 name = "niri-pypc"
-version = "0.1.0"
-source = { editable = ".context/niri-pypc" }
+version = "0.2.0"
+source = { git = "https://github.com/Bullish-Design/niri-pypc.git?tag=v0.2.0#5942cc1c5db218140a6d23eb8f0e567633dea28f" }
 dependencies = [
     { name = "pydantic" },
 ]
 
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5.0" },
-    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a11" },
-]
-provides-extras = ["dev"]
-
 [[package]]
 name = "niri-state"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "niri-pypc" },
@@ -273,7 +262,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
-    { name = "niri-pypc", editable = ".context/niri-pypc" },
+    { name = "niri-pypc", git = "https://github.com/Bullish-Design/niri-pypc.git?tag=v0.2.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },

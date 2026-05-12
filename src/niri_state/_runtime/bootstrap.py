@@ -56,12 +56,13 @@ async def run_bootstrap(config: NiriStateConfig) -> BootstrapOutcome:
         raise BootstrapError("Failed to open connection bundle", cause=exc) from exc
 
     buffered_events: list[object] = []
+    reader_errors: list[Exception] = []
     query_done = asyncio.Event()
     reader_task: asyncio.Task[None] | None = None
 
     def _start_reader() -> None:
         nonlocal reader_task
-        reader_task = asyncio.create_task(_read_events_loop(bundle, buffered_events, query_done))
+        reader_task = asyncio.create_task(_read_events_loop(bundle, buffered_events, query_done, reader_errors))
 
     _start_reader()
 
@@ -90,6 +91,12 @@ async def run_bootstrap(config: NiriStateConfig) -> BootstrapOutcome:
         except Exception:
             pass
         raise BootstrapError("Bootstrap query phase failed", cause=exc) from exc
+    if reader_errors:
+        try:
+            await bundle.close()
+        except Exception:
+            pass
+        raise BootstrapError("Event stream failed during bootstrap", cause=reader_errors[0])
 
     draft = build_initial_draft(payload)
 
@@ -98,7 +105,8 @@ async def run_bootstrap(config: NiriStateConfig) -> BootstrapOutcome:
     for event in buffered_events:
         _apply_event(draft, event, normalized)
 
-    draft.health = HealthState.LIVE
+    if draft.health is HealthState.BOOTSTRAPPING:
+        draft.health = HealthState.LIVE
     published_snapshot = draft.freeze(revision=1)
     _assert_invariants(published_snapshot)
 
@@ -124,7 +132,12 @@ async def run_bootstrap(config: NiriStateConfig) -> BootstrapOutcome:
     return BootstrapOutcome(bundle=bundle, initial_snapshot=published_snapshot, initial_changeset=changeset)
 
 
-async def _read_events_loop(bundle: NiriConnectionBundle, buffer: list[object], query_done: asyncio.Event) -> None:
+async def _read_events_loop(
+    bundle: NiriConnectionBundle,
+    buffer: list[object],
+    query_done: asyncio.Event,
+    errors: list[Exception],
+) -> None:
     try:
         while not query_done.is_set():
             try:
@@ -132,7 +145,8 @@ async def _read_events_loop(bundle: NiriConnectionBundle, buffer: list[object], 
                 buffer.append(event)
             except TimeoutError:
                 continue
-            except Exception:
+            except Exception as exc:
+                errors.append(exc)
                 break
     except asyncio.CancelledError:
         pass

@@ -1,6 +1,6 @@
 [project]
 name = "niri-state"
-version = "0.1.0"
+version = "0.1.1"
 description = "State modeling and selector helpers for the Niri compositor."
 readme = "README.md"
 requires-python = ">=3.13"
@@ -12,11 +12,11 @@ authors = [
 
 dependencies = [
   "pydantic>=2.12.5",
-  "niri-pypc",
+  "niri-pypc>=0.2.0,<0.3.0",
 ]
 
 [tool.uv.sources]
-niri-pypc = { path = ".context/niri-pypc", editable = true }
+niri-pypc = { git = "https://github.com/Bullish-Design/niri-pypc.git", tag = "v0.2.0" }
 
 [project.optional-dependencies]
 dev = [
@@ -27,9 +27,9 @@ dev = [
   "ruff>=0.5.0",
 ]
 
-#[project.urls]
-#homepage = "https://github.com/<owner>/niri-state"
-#repository = "https://github.com/<owner>/niri-state.git"
+[project.urls]
+homepage = "https://github.com/Bullish-Design/niri-state"
+repository = "https://github.com/Bullish-Design/niri-state.git"
 
 [build-system]
 requires = ["hatchling>=1.18"]

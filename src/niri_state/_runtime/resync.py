@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 
 from niri_state._core.models.health import HealthState
-from niri_state._runtime.store import NiriState
 from niri_state.config import NiriStateConfig, ResyncPolicy
+
+if TYPE_CHECKING:
+    from niri_state._runtime.store import NiriState
 
 
 class ResyncCoordinator:

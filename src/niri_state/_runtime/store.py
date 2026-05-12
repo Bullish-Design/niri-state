@@ -14,6 +14,7 @@ from niri_state._core.models.health import HealthState, validate_transition
 from niri_state._core.models.snapshot import NiriSnapshot
 from niri_state._core.reducers.root import reduce_event
 from niri_state._runtime.broadcaster import Broadcaster
+from niri_state._runtime.resync import ResyncCoordinator
 from niri_state.config import InvariantFailurePolicy, NiriStateConfig
 from niri_state.errors import StateLifecycleError
 
@@ -38,6 +39,17 @@ class NiriState:
             queue_size=self._config.subscriber_queue_size,
             overflow_policy=self._config.subscriber_overflow_policy,
         )
+        self._resync_coordinator = ResyncCoordinator(self, self._config)
+
+    @classmethod
+    async def start(cls, config: NiriStateConfig | None = None) -> NiriState:
+        from niri_state._runtime.bootstrap import run_bootstrap
+
+        cfg = config if config is not None else NiriStateConfig()
+        outcome = await run_bootstrap(cfg)
+        state = cls(cfg)
+        await state.connect(outcome.initial_snapshot, outcome.bundle)
+        return state
 
     @property
     def snapshot(self) -> NiriSnapshot | None:
@@ -59,6 +71,7 @@ class NiriState:
             self._current_snapshot = initial_snapshot
             self._revision = initial_snapshot.revision
             self._shutdown_event.clear()
+            await self._broadcast(initial_snapshot, None)
             self._mutation_task = asyncio.create_task(self._mutation_loop(bundle))
 
     async def _mutation_loop(self, bundle: NiriConnectionBundle) -> None:
@@ -73,7 +86,7 @@ class NiriState:
                     continue
                 except Exception as exc:
                     self._logger.warning("Event stream error: %s", exc)
-                    await self._transition_health(HealthState.STALE, f"event stream error: {exc}")
+                    self._resync_coordinator.mark_stale(f"event stream error: {exc}")
                     break
 
                 snapshot = self._current_snapshot
@@ -148,26 +161,42 @@ class NiriState:
 
     def subscribe(self) -> AsyncIterator[tuple[NiriSnapshot, ChangeSet | None]]:
         """Subscribe to state publications. Returns an async iterator."""
-        return self._broadcaster.subscribe()
+
+        async def _iter() -> AsyncIterator[tuple[NiriSnapshot, ChangeSet | None]]:
+            snapshot = self._current_snapshot
+            if snapshot is not None:
+                yield (snapshot, None)
+            async for item in self._broadcaster.subscribe():
+                yield item
+
+        return _iter()
 
     async def refresh(self) -> None:
         """Force a resync. Used in MANUAL resync policy."""
         from niri_state._runtime.bootstrap import run_bootstrap
 
         await self._transition_health(HealthState.RESYNCING, "manual refresh")
-        outcome = await run_bootstrap(self._config)
-
         old_bundle = self._bundle
-        self._bundle = outcome.bundle
-        self._current_snapshot = outcome.initial_snapshot
-        self._revision = outcome.initial_snapshot.revision
-
-        if self._mutation_task is not None:
-            self._mutation_task.cancel()
+        old_task = self._mutation_task
+        self._shutdown_event.set()
+        if old_task is not None:
+            old_task.cancel()
             try:
-                await self._mutation_task
+                await old_task
             except asyncio.CancelledError:
                 pass
+        self._mutation_task = None
+
+        outcome = await run_bootstrap(self._config)
+        next_revision = self._revision + 1
+        next_snapshot = outcome.initial_snapshot.model_copy(update={"revision": next_revision})
+        next_changeset = outcome.initial_changeset.model_copy(
+            update={"revision": next_revision, "timestamp": next_snapshot.timestamp}
+        )
+
+        self._bundle = outcome.bundle
+        self._current_snapshot = next_snapshot
+        self._revision = next_snapshot.revision
 
         self._shutdown_event.clear()
         self._mutation_task = asyncio.create_task(self._mutation_loop(outcome.bundle))
@@ -178,7 +207,7 @@ class NiriState:
             except Exception:
                 pass
 
-        await self._broadcast(outcome.initial_snapshot, outcome.initial_changeset)
+        await self._broadcast(next_snapshot, next_changeset)
 
     async def close(self) -> None:
         """Idempotent shutdown."""

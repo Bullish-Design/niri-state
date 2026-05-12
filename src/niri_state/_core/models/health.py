@@ -16,7 +16,7 @@ class HealthState(enum.Enum):
 
 _LEGAL_TRANSITIONS: dict[HealthState, frozenset[HealthState]] = {
     HealthState.BOOTSTRAPPING: frozenset({HealthState.LIVE, HealthState.FAILED}),
-    HealthState.LIVE: frozenset({HealthState.STALE, HealthState.CLOSED}),
+    HealthState.LIVE: frozenset({HealthState.STALE, HealthState.RESYNCING, HealthState.CLOSED}),
     HealthState.STALE: frozenset(
         {
             HealthState.RESYNCING,

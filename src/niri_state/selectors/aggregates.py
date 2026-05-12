@@ -16,9 +16,9 @@ class FocusedContext(TypedDict, total=False):
     focused_output_name: OutputName | None
     focused_workspace_id: int | None
     focused_window_id: int | None
-    active_workspace_on_output: WorkspaceState
-    focused_workspace: WorkspaceState
-    focused_window: WindowState
+    active_workspace_on_output: WorkspaceState | None
+    focused_workspace: WorkspaceState | None
+    focused_window: WindowState | None
 
 
 def get_workspace_tree(snapshot: NiriSnapshot, output_name: OutputName) -> dict[str, WorkspaceTreeNode]:

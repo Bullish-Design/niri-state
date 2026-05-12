@@ -106,6 +106,8 @@ async def _start_mock_server(
     socket_path: Path,
     cmd_responses: list[bytes],
     event_frames: list[dict],
+    *,
+    close_event_stream_early: bool = False,
 ) -> asyncio.Server:
     cmd_idx = [0]
     event_sent = [False]
@@ -124,6 +126,8 @@ async def _start_mock_server(
                 writer.write(frame)
                 await writer.drain()
                 await asyncio.sleep(0.01)
+            if not close_event_stream_early:
+                await asyncio.sleep(1.0)
             writer.close()
             await writer.wait_closed()
         else:
@@ -284,6 +288,68 @@ class TestRunBootstrap:
             try:
                 outcome = await run_bootstrap(config)
                 assert outcome.initial_snapshot.compatibility.compositor_version is None
+            finally:
+                server.close()
+                await server.wait_closed()
+                if outcome is not None:
+                    await outcome.bundle.close()
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    async def test_event_stream_failure_during_bootstrap_raises(self) -> None:
+        cmd_responses = [
+            _make_output_response("DP-1"),
+            _make_workspaces_response([]),
+            _make_windows_response([]),
+            _make_focused_output_response("DP-1"),
+            _make_focused_window_response(None),
+            _make_keyboard_response(),
+            _make_overview_response(False),
+            _make_version_response("0.42.0"),
+        ]
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            socket_path = Path(tmpdir) / "test.sock"
+            server = await _start_mock_server(socket_path, cmd_responses, [], close_event_stream_early=True)
+
+            config = NiriStateConfig(pypc=NiriConfig(socket_path=socket_path, connect_timeout=5.0, request_timeout=5.0))
+            try:
+                with pytest.raises(BootstrapError, match="Event stream failed during bootstrap"):
+                    await run_bootstrap(config)
+            finally:
+                server.close()
+                await server.wait_closed()
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    async def test_bootstrap_preserves_stale_health_from_replay(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        cmd_responses = [
+            _make_output_response("DP-1"),
+            _make_workspaces_response([]),
+            _make_windows_response([]),
+            _make_focused_output_response("DP-1"),
+            _make_focused_window_response(None),
+            _make_keyboard_response(),
+            _make_overview_response(False),
+            _make_version_response("0.42.0"),
+        ]
+
+        def _force_stale(draft: object, event: object, config: NiriStateConfig) -> None:
+            draft.health = HealthState.STALE  # type: ignore[attr-defined]
+
+        monkeypatch.setattr("niri_state._runtime.bootstrap._apply_event", _force_stale)
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            socket_path = Path(tmpdir) / "test.sock"
+            server = await _start_mock_server(socket_path, cmd_responses, [{"SomeFutureEvent": {"x": 1}}])
+
+            config = NiriStateConfig(pypc=NiriConfig(socket_path=socket_path, connect_timeout=5.0, request_timeout=5.0))
+            outcome: BootstrapOutcome | None = None
+            try:
+                outcome = await run_bootstrap(config)
+                assert outcome.initial_snapshot.health is HealthState.STALE
             finally:
                 server.close()
                 await server.wait_closed()
