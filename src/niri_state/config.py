@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from niri_pypc import BackpressureMode, NiriConfig
 
@@ -66,30 +66,11 @@ def normalize_config(config: NiriStateConfig) -> NiriStateConfig:
         return config
 
     try:
-        normalized_pypc = NiriConfig(
-            socket_path=config.pypc.socket_path,
-            connect_timeout=config.pypc.connect_timeout,
-            request_timeout=config.pypc.request_timeout,
-            event_read_timeout=config.pypc.event_read_timeout,
-            max_frame_size=config.pypc.max_frame_size,
-            event_queue_capacity=config.pypc.event_queue_capacity,
-            backpressure_mode=BackpressureMode.FAIL_FAST,
-        )
+        normalized_pypc = replace(config.pypc, backpressure_mode=BackpressureMode.FAIL_FAST)
     except Exception as exc:
         raise StateConfigError(
             "Failed to normalize upstream backpressure for strict mode",
             cause=exc,
         ) from exc
 
-    return NiriStateConfig(
-        pypc=normalized_pypc,
-        correctness_mode=config.correctness_mode,
-        resync_policy=config.resync_policy,
-        unknown_event_policy=config.unknown_event_policy,
-        invariant_failure_policy=config.invariant_failure_policy,
-        wait_health_policy=config.wait_health_policy,
-        subscriber_overflow_policy=config.subscriber_overflow_policy,
-        subscriber_queue_size=config.subscriber_queue_size,
-        resync_max_attempts=config.resync_max_attempts,
-        resync_backoff_base=config.resync_backoff_base,
-    )
+    return replace(config, pypc=normalized_pypc)
