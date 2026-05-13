@@ -11,8 +11,6 @@ def test_with_desync_marks_diagnostic() -> None:
 
 
 def test_with_invariant_violations_stores_tuple() -> None:
-    violations = (
-        InvariantViolation(code="x", message="y"),
-    )
+    violations = (InvariantViolation(code="x", message="y"),)
     diag = with_invariant_violations(Diagnostics(), violations=violations)
     assert diag.invariant_violations == violations

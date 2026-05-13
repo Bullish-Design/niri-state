@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any, cast
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -33,22 +36,20 @@ class Diagnostics(BaseModel, frozen=True):
 
 
 def with_event_applied(diag: Diagnostics, *, event_type: str) -> Diagnostics:
-    return diag.model_copy(
-        update={
-            "event_count": diag.event_count + 1,
-            "last_event_type": event_type,
-        }
-    )
+    update = cast(Mapping[str, Any], {"event_count": diag.event_count + 1, "last_event_type": event_type})
+    return diag.model_copy(update=update)
 
 
 def with_desync(diag: Diagnostics, *, event_type: str, reason: str) -> Diagnostics:
-    return diag.model_copy(
-        update={
+    update = cast(
+        Mapping[str, Any],
+        {
             "desynced": True,
             "last_event_type": event_type,
             "last_error": reason,
-        }
+        },
     )
+    return diag.model_copy(update=update)
 
 
 def with_invariant_violations(
@@ -56,23 +57,28 @@ def with_invariant_violations(
     *,
     violations: tuple[InvariantViolation, ...],
 ) -> Diagnostics:
-    return diag.model_copy(update={"invariant_violations": violations})
+    update = cast(Mapping[str, Any], {"invariant_violations": violations})
+    return diag.model_copy(update=update)
 
 
 def with_resync(diag: Diagnostics) -> Diagnostics:
-    return diag.model_copy(
-        update={
+    update = cast(
+        Mapping[str, Any],
+        {
             "desynced": False,
             "resync_count": diag.resync_count + 1,
             "last_error": None,
             "invariant_violations": (),
-        }
+        },
     )
+    return diag.model_copy(update=update)
 
 
 def with_error(diag: Diagnostics, *, message: str) -> Diagnostics:
-    return diag.model_copy(update={"last_error": message})
+    update = cast(Mapping[str, Any], {"last_error": message})
+    return diag.model_copy(update=update)
 
 
 def with_note(diag: Diagnostics, *, note: str) -> Diagnostics:
-    return diag.model_copy(update={"notes": diag.notes + (note,)})
+    update = cast(Mapping[str, Any], {"notes": diag.notes + (note,)})
+    return diag.model_copy(update=update)

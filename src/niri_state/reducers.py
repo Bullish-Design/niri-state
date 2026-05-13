@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import Any, cast
 
 from niri_state.changes import ChangedDomain
 from niri_state.config import NiriStateConfig, UnknownEventPolicy
@@ -273,7 +274,8 @@ def reduce_keyboard_layout_switched(
             operation="reduce_keyboard_layout_switched",
         )
 
-    engine.keyboard_layouts = current.model_copy(update={"current_idx": event.idx})
+    update = cast(Mapping[str, Any], {"current_idx": event.idx})
+    engine.keyboard_layouts = current.model_copy(update=update)
     return frozenset({ChangedDomain.KEYBOARD})
 
 
@@ -290,7 +292,8 @@ def reduce_overview_opened_or_closed(
             operation="reduce_overview_opened_or_closed",
         )
 
-    engine.overview = current.model_copy(update={"is_open": event.is_open})
+    update = cast(Mapping[str, Any], {"is_open": event.is_open})
+    engine.overview = current.model_copy(update=update)
     return frozenset({ChangedDomain.OVERVIEW})
 
 

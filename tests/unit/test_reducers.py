@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any, cast
+
 from tests.factories.events import (
     make_window_layouts_changed_event,
     make_window_urgency_changed_event,
@@ -59,7 +62,8 @@ def test_reduce_window_layouts_changed_consumes_changes_list() -> None:
     engine.keyboard_layouts = make_keyboard_layouts()
     engine.overview = make_overview()
     old_layout = make_window(id=100).layout
-    new_layout = old_layout.model_copy(update={"window_size": [1024, 768]})
+    update = cast(Mapping[str, Any], {"window_size": [1024, 768]})
+    new_layout = old_layout.model_copy(update=update)
     engine.windows = {100: make_window(id=100, layout=old_layout)}
 
     domains = reduce_window_layouts_changed(

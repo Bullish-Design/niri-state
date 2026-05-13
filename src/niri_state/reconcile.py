@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any, cast
+
 from niri_state.diagnostics import with_note
 from niri_state.engine_state import EngineState
 from niri_state.health import HealthState
@@ -40,13 +43,15 @@ def _reconcile_focused_workspace(engine: EngineState) -> None:
 
 
 def _reconcile_keyboard(engine: EngineState) -> None:
-    if engine.keyboard_layouts is None:
+    keyboard_layouts = engine.keyboard_layouts
+    if keyboard_layouts is None:
         return
 
-    names = engine.keyboard_layouts.names
-    idx = engine.keyboard_layouts.current_idx
+    names = keyboard_layouts.names
+    idx = keyboard_layouts.current_idx
     if names and not (0 <= idx < len(names)):
-        engine.keyboard_layouts = engine.keyboard_layouts.model_copy(update={"current_idx": 0})
+        update = cast(Mapping[str, Any], {"current_idx": 0})
+        engine.keyboard_layouts = keyboard_layouts.model_copy(update=update)
 
 
 def _reconcile_workspace_window_relationships(engine: EngineState) -> None:
@@ -61,7 +66,8 @@ def _reconcile_workspace_window_relationships(engine: EngineState) -> None:
 
 def _reconcile_diagnostics(engine: EngineState) -> None:
     if engine.health is HealthState.LIVE and engine.diagnostics.desynced:
-        engine.diagnostics = engine.diagnostics.model_copy(update={"desynced": False})
+        update = cast(Mapping[str, Any], {"desynced": False})
+        engine.diagnostics = engine.diagnostics.model_copy(update=update)
     if engine.health is HealthState.STALE and not engine.diagnostics.desynced:
         engine.diagnostics = with_note(
             engine.diagnostics,

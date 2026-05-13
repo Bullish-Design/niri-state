@@ -21,10 +21,14 @@ async def test_refresh_replaces_snapshot() -> None:
 
     state._open_bundle = _open_bundle  # type: ignore[method-assign]
     await state.connect()
+    before = state.snapshot
     assert 100 in state.snapshot.windows
 
     await state.refresh()
     await asyncio.sleep(0)
+    after = state.snapshot
 
-    assert 200 in state.snapshot.windows
+    assert 200 in after.windows
+    assert after.revision > before.revision
+    assert after.diagnostics.resync_count >= before.diagnostics.resync_count
     await state.close()

@@ -219,7 +219,7 @@ class NiriState:
         self._engine.diagnostics = with_desync(
             self._engine.diagnostics,
             reason=str(exc),
-            event_type=exc.event_type,
+            event_type=exc.event_type or "UnknownEvent",
         )
         await self._transition_health(HealthState.STALE)
         reconcile(self._engine)

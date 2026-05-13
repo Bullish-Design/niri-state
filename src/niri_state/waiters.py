@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Callable
-from typing import Protocol, TypeVar
+from typing import Protocol
 
 from niri_state.broadcaster import PublishedState
 from niri_state.config import NiriStateConfig, WaitHealthPolicy
 from niri_state.errors import WaitTimeoutError
 from niri_state.health import HealthState
 from niri_state.snapshot import Snapshot
-
-T = TypeVar("T")
 
 
 class WaitableState(Protocol):
@@ -67,7 +65,7 @@ async def wait_until(
         if timeout is None:
             return await _wait()
         return await asyncio.wait_for(_wait(), timeout=timeout)
-    except asyncio.TimeoutError as exc:
+    except TimeoutError as exc:
         raise WaitTimeoutError(
             "timed out waiting for state predicate",
             timeout=timeout or 0.0,
@@ -76,7 +74,7 @@ async def wait_until(
         ) from exc
 
 
-async def wait_for_selector(
+async def wait_for_selector[T](
     state: WaitableState,
     selector: Callable[[Snapshot], T],
     *,

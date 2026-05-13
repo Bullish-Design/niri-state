@@ -32,9 +32,7 @@ class Broadcaster:
         if self._closed:
             return self._empty()
 
-        subscriber = _Subscriber(
-            queue=asyncio.Queue(maxsize=self._config.subscriber_queue_size)
-        )
+        subscriber = _Subscriber(queue=asyncio.Queue(maxsize=self._config.subscriber_queue_size))
         self._subscribers.add(subscriber)
         return self._iter(subscriber)
 
@@ -67,7 +65,7 @@ class Broadcaster:
                     raise SubscriptionOverflowError(
                         "subscriber queue overflowed",
                         operation="broadcaster_publish",
-                    )
+                    ) from None
 
         for subscriber in dead:
             self._subscribers.discard(subscriber)

@@ -1,4 +1,4 @@
-from niri_state.changes import ChangeCause, ChangeSet, ChangedDomain
+from niri_state.changes import ChangeCause, ChangedDomain, ChangeSet
 from niri_state.config import (
     InvariantFailurePolicy,
     NiriStateConfig,

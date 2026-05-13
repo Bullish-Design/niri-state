@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from niri_state.changes import ChangeCause
 from niri_state.config import NiriStateConfig, ResyncPolicy
 
-if TYPE_CHECKING:
-    from niri_state.store import NiriState
+
+class _Refreshable(Protocol):
+    async def refresh(self, *, cause: ChangeCause = ChangeCause.REFRESH): ...
 
 
 class ResyncCoordinator:
-    def __init__(self, state: NiriState, config: NiriStateConfig) -> None:
+    def __init__(self, state: _Refreshable, config: NiriStateConfig) -> None:
         self._state = state
         self._config = config
         self._trigger = asyncio.Event()

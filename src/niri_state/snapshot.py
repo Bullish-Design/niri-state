@@ -21,9 +21,9 @@ class Snapshot(BaseModel, frozen=True):
     timestamp: float
     health: HealthState
 
-    outputs: MappingProxyType[str, Output]
-    workspaces: MappingProxyType[int, Workspace]
-    windows: MappingProxyType[int, Window]
+    outputs: dict[str, Output] | MappingProxyType[str, Output]
+    workspaces: dict[int, Workspace] | MappingProxyType[int, Workspace]
+    windows: dict[int, Window] | MappingProxyType[int, Window]
 
     focused_workspace_id: int | None
     focused_window_id: int | None

@@ -8,6 +8,7 @@
 - [x] Step 2: Corrected reducer/reconcile/invariant contracts and tests
 - [x] Step 3: Implemented bootstrap buffering/replay and runtime seams/tests
 - [x] Step 4: Implemented refresh/resync lifecycle safety improvements and integration tests
+- [x] Step 5: Completed replay convergence coverage and finalized v2-only integration/test layout
 
 ### Pending
-- [ ] Step 5: Integration/replay coverage completion and final cleanup (legacy path removal, full quality gates)
+- [ ] Run full quality gates (`ruff check`, `ruff format --check`, `ty check`, `pytest -q`) and publish final step commit

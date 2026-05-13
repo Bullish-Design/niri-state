@@ -8,6 +8,11 @@ Step 4 complete:
 - desync diagnostic callsite fixed (`reason=`)
 - integration tests for refresh, auto-resync, and close lifecycle are implemented and passing
 
-Next final step:
-- complete remaining replay/integration scaffolding and remove legacy `_core`/`_runtime` architecture paths
-- run full repo Python quality gates (`ruff check`, `ruff format --check`, `ty check`, broader pytest) and ship final step commit
+Step 5 implementation complete:
+- replay placeholder replaced by a real convergence test in `tests/replay/test_replay_traces.py`
+- refresh integration test now asserts revision advancement and non-decreasing diagnostics resync counters
+- v1 legacy `_core`/`_runtime` source paths and old test trees were removed by the user as directed
+
+Remaining:
+- run full repo Python quality gates (`ruff check`, `ruff format --check`, `ty check`, `pytest -q`)
+- commit and push final step changes
