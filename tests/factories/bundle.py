@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 
 from niri_state.protocol import (
@@ -77,8 +78,9 @@ class FakeClient:
 
 
 class FakeEventStream:
-    def __init__(self, events: tuple[object, ...]) -> None:
+    def __init__(self, events: tuple[object, ...], *, delay_s: float = 0.0) -> None:
         self._events = events
+        self._delay_s = delay_s
         self._closed = False
 
     def __aiter__(self) -> AsyncIterator[object]:
@@ -88,6 +90,8 @@ class FakeEventStream:
         for event in self._events:
             if self._closed:
                 break
+            if self._delay_s > 0:
+                await asyncio.sleep(self._delay_s)
             yield event
 
     async def close(self) -> None:
@@ -100,5 +104,6 @@ class FakeBundle(NiriConnectionBundle):
         *,
         events: tuple[object, ...] = (),
         client: FakeClient | None = None,
+        event_delay_s: float = 0.0,
     ) -> None:
-        super().__init__(client or FakeClient(), FakeEventStream(events))
+        super().__init__(client or FakeClient(), FakeEventStream(events, delay_s=event_delay_s))

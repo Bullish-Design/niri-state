@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 from typing import TYPE_CHECKING
 
+from niri_state.changes import ChangeCause
 from niri_state.config import NiriStateConfig, ResyncPolicy
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ class ResyncCoordinator:
                 return
 
             try:
-                await self._state.refresh()
+                await self._state.refresh(cause=ChangeCause.RESYNC)
             except asyncio.CancelledError:
                 raise
             except Exception:
