@@ -31,23 +31,44 @@ from tests.factories.protocol import (
 
 
 class FakeClient:
+    def __init__(
+        self,
+        *,
+        outputs: dict[str, object] | None = None,
+        workspaces: list[object] | None = None,
+        windows: list[object] | None = None,
+        focused_output: object | None = None,
+        focused_window: object | None = None,
+        keyboard_layouts: object | None = None,
+        overview: object | None = None,
+        version: str = "25.11",
+    ) -> None:
+        self.outputs = outputs or {"HDMI-A-1": make_output()}
+        self.workspaces = workspaces or [make_workspace()]
+        self.windows = windows or [make_window()]
+        self.focused_output = focused_output if focused_output is not None else make_output()
+        self.focused_window = focused_window if focused_window is not None else make_window()
+        self.keyboard_layouts = keyboard_layouts if keyboard_layouts is not None else make_keyboard_layouts()
+        self.overview = overview if overview is not None else make_overview()
+        self.version = version
+
     async def request(self, req: object):
         if isinstance(req, OutputsRequest):
-            return OutputsResponse(payload={"HDMI-A-1": make_output()})
+            return OutputsResponse(payload=self.outputs)
         if isinstance(req, WorkspacesRequest):
-            return WorkspacesResponse(payload=[make_workspace()])
+            return WorkspacesResponse(payload=self.workspaces)
         if isinstance(req, WindowsRequest):
-            return WindowsResponse(payload=[make_window()])
+            return WindowsResponse(payload=self.windows)
         if isinstance(req, FocusedWindowRequest):
-            return FocusedWindowResponse(payload=make_window())
+            return FocusedWindowResponse(payload=self.focused_window)
         if isinstance(req, FocusedOutputRequest):
-            return FocusedOutputResponse(payload=make_output())
+            return FocusedOutputResponse(payload=self.focused_output)
         if isinstance(req, KeyboardLayoutsRequest):
-            return KeyboardLayoutsResponse(payload=make_keyboard_layouts())
+            return KeyboardLayoutsResponse(payload=self.keyboard_layouts)
         if isinstance(req, OverviewStateRequest):
-            return OverviewStateResponse(payload=make_overview())
+            return OverviewStateResponse(payload=self.overview)
         if isinstance(req, VersionRequest):
-            return VersionResponse(payload="25.11")
+            return VersionResponse(payload=self.version)
         msg = f"unexpected request: {type(req).__name__}"
         raise AssertionError(msg)
 
@@ -74,5 +95,10 @@ class FakeEventStream:
 
 
 class FakeBundle(NiriConnectionBundle):
-    def __init__(self, *, events: tuple[object, ...] = ()) -> None:
-        super().__init__(FakeClient(), FakeEventStream(events))
+    def __init__(
+        self,
+        *,
+        events: tuple[object, ...] = (),
+        client: FakeClient | None = None,
+    ) -> None:
+        super().__init__(client or FakeClient(), FakeEventStream(events))

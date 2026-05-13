@@ -14,4 +14,4 @@ async def test_wait_until_returns_immediately_when_predicate_matches(dummy_state
         config=NiriStateConfig(),
         timeout=0.1,
     )
-    assert snapshot is dummy_state.snapshot()
+    assert snapshot is dummy_state.snapshot

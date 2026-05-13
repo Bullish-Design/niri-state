@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
+
 from pydantic import BaseModel, ConfigDict
 
 from niri_state.changes import ChangeSet, bootstrap_changeset
@@ -27,6 +30,7 @@ from niri_state.protocol import (
     WorkspacesRequest,
 )
 from niri_state.reconcile import reconcile
+from niri_state.reducers import reduce_event
 from niri_state.snapshot import Snapshot
 
 
@@ -158,7 +162,25 @@ async def run_bootstrap(
     config: NiriStateConfig,
 ) -> BootstrapOutcome:
     try:
-        engine = await build_initial_engine_state(bundle.client)
+        buffered_events: list[object] = []
+
+        async def _buffer_events() -> None:
+            async for event in bundle.events:
+                buffered_events.append(event)
+
+        buffer_task = asyncio.create_task(_buffer_events())
+        await asyncio.sleep(0)
+        try:
+            engine = await build_initial_engine_state(bundle.client)
+        finally:
+            buffer_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await buffer_task
+
+        for event in buffered_events:
+            reduce_event(engine, event, config=config, revision=0)
+            reconcile(engine)
+
         engine.health = HealthState.LIVE
 
         snapshot = engine.freeze(revision=1)
