@@ -1,14 +1,14 @@
 # CONTEXT
 
-The intro of `REFINED_V2_REWRITE_CODE_SKELETON.md` was upgraded to serve as a complete pre-implementation briefing.
+Working branch: `v2-rewrite`
 
-It now explicitly covers:
-- rewrite scope boundaries
-- API compatibility decisions to preserve
-- bootstrap/refresh/resync runtime correctness contracts
-- determinism + invariants expectations
-- unit/integration/replay testing strategy
-- ordered implementation sequence
-- repo-specific quality gates (`devenv shell -- ruff/ty/pytest`)
+Step 1 has been completed at the scaffolding/alignment level:
+- skeleton code blocks were materialized for new v2 modules and tests
+- `protocol.py` now imports `UnknownEvent` from `niri_pypc.types.base`
+- typed model factory payloads were updated toward actual generated upstream model fields
+- new typed factory files were added for events and fake connection bundles
 
-Next step is to start implementation using the skeleton sections in order.
+Next immediate work is Step 2:
+- correct reducer event field semantics (notably urgency/layout/focus/workspace activation contracts)
+- complete reconcile and invariant logic per mandatory appendix contracts
+- then commit/push step 2

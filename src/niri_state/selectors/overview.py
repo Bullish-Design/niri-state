@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from niri_state._core.models.entities import OverviewState
-from niri_state._core.models.snapshot import NiriSnapshot
+from niri_state.protocol import Overview
+from niri_state.snapshot import Snapshot
 
 
-def is_overview_open(snapshot: NiriSnapshot) -> bool:
-    """Check if overview is open."""
-    return snapshot.overview.is_open
-
-
-def get_overview_state(snapshot: NiriSnapshot) -> OverviewState:
-    """Get the overview state."""
+def get_overview(snapshot: Snapshot) -> Overview:
     return snapshot.overview
+
+
+def is_overview_open(snapshot: Snapshot) -> bool:
+    return snapshot.overview.is_open

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from niri_state._core.models.entities import KeyboardState
-from niri_state._core.models.snapshot import NiriSnapshot
+from niri_state.protocol import KeyboardLayouts
+from niri_state.snapshot import Snapshot
 
 
-def get_keyboard_state(snapshot: NiriSnapshot) -> KeyboardState:
-    """Get the keyboard state."""
-    return snapshot.keyboard
+def get_keyboard_layouts(snapshot: Snapshot) -> KeyboardLayouts:
+    return snapshot.keyboard_layouts
 
 
-def get_current_layout_name(snapshot: NiriSnapshot) -> str | None:
-    """Get the current keyboard layout name."""
-    return snapshot.keyboard.current_name
+def get_keyboard_current_name(snapshot: Snapshot) -> str | None:
+    return snapshot.keyboard_current_name

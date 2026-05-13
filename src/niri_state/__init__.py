@@ -1,16 +1,12 @@
-from __future__ import annotations
-
-from niri_state._runtime.store import NiriState
-from niri_state._version import __version__
+from niri_state.changes import ChangeCause, ChangeSet, ChangedDomain
 from niri_state.config import (
-    CorrectnessMode,
     InvariantFailurePolicy,
     NiriStateConfig,
     ResyncPolicy,
     SubscriberOverflowPolicy,
     UnknownEventPolicy,
     WaitHealthPolicy,
-    normalize_config,
+    strict_config,
 )
 from niri_state.errors import (
     BootstrapError,
@@ -24,34 +20,32 @@ from niri_state.errors import (
     SubscriptionOverflowError,
     WaitTimeoutError,
 )
-from niri_state.selectors import aggregates, focus, keyboard, outputs, overview, windows, workspaces
+from niri_state.health import HealthState
+from niri_state.snapshot import Snapshot
+from niri_state.store import NiriState
 
 __all__ = [
-    "__version__",
-    "NiriState",
-    "CorrectnessMode",
-    "InvariantFailurePolicy",
-    "NiriStateConfig",
-    "normalize_config",
-    "ResyncPolicy",
-    "SubscriberOverflowPolicy",
-    "UnknownEventPolicy",
-    "WaitHealthPolicy",
     "BootstrapError",
+    "ChangeCause",
+    "ChangeSet",
+    "ChangedDomain",
     "DesyncError",
+    "HealthState",
     "InvariantError",
+    "InvariantFailurePolicy",
+    "NiriState",
+    "NiriStateConfig",
     "NiriStateError",
     "ReductionError",
     "ResyncError",
+    "ResyncPolicy",
+    "Snapshot",
     "StateConfigError",
     "StateLifecycleError",
+    "SubscriberOverflowPolicy",
     "SubscriptionOverflowError",
+    "UnknownEventPolicy",
+    "WaitHealthPolicy",
     "WaitTimeoutError",
-    "aggregates",
-    "focus",
-    "keyboard",
-    "outputs",
-    "overview",
-    "windows",
-    "workspaces",
+    "strict_config",
 ]
