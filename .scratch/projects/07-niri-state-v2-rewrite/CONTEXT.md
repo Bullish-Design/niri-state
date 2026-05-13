@@ -2,13 +2,13 @@
 
 Working branch: `v2-rewrite`
 
-Step 1 has been completed at the scaffolding/alignment level:
-- skeleton code blocks were materialized for new v2 modules and tests
-- `protocol.py` now imports `UnknownEvent` from `niri_pypc.types.base`
-- typed model factory payloads were updated toward actual generated upstream model fields
-- new typed factory files were added for events and fake connection bundles
+Step 2 complete:
+- reducer semantics now align with generated event contracts
+- reconcile and invariant enforcement expanded to contract-critical paths
+- deterministic ordering guarantees are now checked and tested
+- targeted unit tests pass for reducers/reconcile/invariants/snapshot indexes
 
-Next immediate work is Step 2:
-- correct reducer event field semantics (notably urgency/layout/focus/workspace activation contracts)
-- complete reconcile and invariant logic per mandatory appendix contracts
-- then commit/push step 2
+Next:
+- Step 3 runtime lifecycle seams
+- verify bootstrap buffering during query phase and correct initial revision publication
+- tighten store mutation loop bootstrap/install/start/stop sequencing

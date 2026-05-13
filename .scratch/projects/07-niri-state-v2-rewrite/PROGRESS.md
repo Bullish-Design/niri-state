@@ -4,13 +4,13 @@
 
 ### Completed
 - [x] Read rewrite skeleton and project rules
-- [x] Step 1: Landed v2 scaffolding files from skeleton across `src/niri_state` and `tests/`
-- [x] Step 1: Aligned protocol surface and typed factories to generated `niri_pypc` types
-- [x] Step 1: Added missing typed factory helpers (`make_timestamp`, `make_window_layout`, `make_mode`, `make_logical_output`)
-- [x] Step 1: Added event and fake bundle factory scaffolding for upcoming reducer/runtime/integration tests
+- [x] Step 1: Landed v2 scaffolding files from skeleton + typed factory baseline
+- [x] Step 2: Corrected reducer contracts (`urgent` fields, layout `changes`, workspace activation `focused` handling)
+- [x] Step 2: Implemented reconcile passes for keyboard index tolerance and stale `active_window_id` cleanup
+- [x] Step 2: Extended invariants and deterministic derived-index checks
+- [x] Step 2: Added unit tests for reducer/reconcile/invariant/determinism contracts
 
 ### Pending
-- [ ] Step 2: Reducer field semantics + reconcile/invariant completion
 - [ ] Step 3: Bootstrap buffering and store lifecycle seam completion
 - [ ] Step 4: Refresh/resync safety path + diagnostics carry-forward behavior
 - [ ] Step 5: Integration/replay coverage completion and final cleanup

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from niri_state.diagnostics import with_note
 from niri_state.engine_state import EngineState
+from niri_state.health import HealthState
 
 
 def reconcile(engine: EngineState) -> None:
@@ -25,10 +27,7 @@ def _reconcile_focused_window(engine: EngineState) -> None:
 
 
 def _reconcile_focused_workspace(engine: EngineState) -> None:
-    if (
-        engine.focused_workspace_id is not None
-        and engine.focused_workspace_id not in engine.workspaces
-    ):
+    if engine.focused_workspace_id is not None and engine.focused_workspace_id not in engine.workspaces:
         engine.focused_workspace_id = None
 
     if engine.focused_workspace_id is not None:
@@ -41,12 +40,30 @@ def _reconcile_focused_workspace(engine: EngineState) -> None:
 
 
 def _reconcile_keyboard(engine: EngineState) -> None:
-    return
+    if engine.keyboard_layouts is None:
+        return
+
+    names = engine.keyboard_layouts.names
+    idx = engine.keyboard_layouts.current_idx
+    if names and not (0 <= idx < len(names)):
+        engine.keyboard_layouts = engine.keyboard_layouts.model_copy(update={"current_idx": 0})
 
 
 def _reconcile_workspace_window_relationships(engine: EngineState) -> None:
-    return
+    for workspace_id, workspace in list(engine.workspaces.items()):
+        active_window_id = workspace.active_window_id
+        if active_window_id is None:
+            continue
+        window = engine.windows.get(active_window_id)
+        if window is None or window.workspace_id != workspace_id:
+            engine.workspaces[workspace_id] = workspace.model_copy(update={"active_window_id": None})
 
 
 def _reconcile_diagnostics(engine: EngineState) -> None:
-    return
+    if engine.health is HealthState.LIVE and engine.diagnostics.desynced:
+        engine.diagnostics = engine.diagnostics.model_copy(update={"desynced": False})
+    if engine.health is HealthState.STALE and not engine.diagnostics.desynced:
+        engine.diagnostics = with_note(
+            engine.diagnostics,
+            note="health is stale without explicit desync marker",
+        )

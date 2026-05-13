@@ -142,7 +142,7 @@ def reduce_window_urgency_changed(
             operation="reduce_window_urgency_changed",
         )
 
-    engine.windows[event.id] = window.model_copy(update={"is_urgent": event.is_urgent})
+    engine.windows[event.id] = window.model_copy(update={"is_urgent": event.urgent})
     return frozenset({ChangedDomain.WINDOWS})
 
 
@@ -159,9 +159,7 @@ def reduce_window_focus_timestamp_changed(
             operation="reduce_window_focus_timestamp_changed",
         )
 
-    engine.windows[event.id] = window.model_copy(
-        update={"focus_timestamp": event.focus_timestamp}
-    )
+    engine.windows[event.id] = window.model_copy(update={"focus_timestamp": event.focus_timestamp})
     return frozenset({ChangedDomain.WINDOWS, ChangedDomain.FOCUS})
 
 
@@ -170,15 +168,15 @@ def reduce_window_layouts_changed(
     engine: EngineState,
     event: WindowLayoutsChangedEvent,
 ) -> frozenset[ChangedDomain]:
-    window = engine.windows.get(event.id)
-    if window is None:
-        raise DesyncError(
-            "window layout changed for unknown window",
-            event_type=type(event).__name__,
-            operation="reduce_window_layouts_changed",
-        )
-
-    engine.windows[event.id] = window.model_copy(update={"layout": event.layout})
+    for window_id, layout in event.changes:
+        window = engine.windows.get(window_id)
+        if window is None:
+            raise DesyncError(
+                "window layout changed for unknown window",
+                event_type=type(event).__name__,
+                operation="reduce_window_layouts_changed",
+            )
+        engine.windows[window_id] = window.model_copy(update={"layout": layout})
     return frozenset({ChangedDomain.WINDOWS})
 
 
@@ -209,15 +207,12 @@ def reduce_workspace_activated(
         if existing.output != workspace.output:
             continue
         if existing.is_active or existing.is_focused:
-            updated[workspace_id] = existing.model_copy(
-                update={"is_active": False, "is_focused": False}
-            )
+            updated[workspace_id] = existing.model_copy(update={"is_active": False, "is_focused": False})
 
     engine.workspaces.update(updated)
-    engine.workspaces[event.id] = workspace.model_copy(
-        update={"is_active": True, "is_focused": True}
-    )
-    engine.focused_workspace_id = event.id
+    is_focused = event.focused
+    engine.workspaces[event.id] = workspace.model_copy(update={"is_active": True, "is_focused": is_focused})
+    engine.focused_workspace_id = event.id if is_focused else engine.focused_workspace_id
 
     return frozenset({ChangedDomain.WORKSPACES, ChangedDomain.FOCUS})
 
@@ -235,9 +230,7 @@ def reduce_workspace_active_window_changed(
             operation="reduce_workspace_active_window_changed",
         )
 
-    engine.workspaces[event.workspace_id] = workspace.model_copy(
-        update={"active_window_id": event.active_window_id}
-    )
+    engine.workspaces[event.workspace_id] = workspace.model_copy(update={"active_window_id": event.active_window_id})
     return frozenset({ChangedDomain.WORKSPACES, ChangedDomain.FOCUS})
 
 
@@ -254,9 +247,7 @@ def reduce_workspace_urgency_changed(
             operation="reduce_workspace_urgency_changed",
         )
 
-    engine.workspaces[event.id] = workspace.model_copy(
-        update={"is_urgent": event.is_urgent}
-    )
+    engine.workspaces[event.id] = workspace.model_copy(update={"is_urgent": event.urgent})
     return frozenset({ChangedDomain.WORKSPACES})
 
 

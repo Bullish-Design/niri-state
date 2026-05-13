@@ -54,10 +54,17 @@ class Snapshot(BaseModel, frozen=True):
 
     @cached_property
     def workspaces_by_output(self) -> MappingProxyType[str, tuple[int, ...]]:
-        buckets: dict[str, list[int]] = {}
-        for workspace_id, ws in self.workspaces.items():
-            buckets.setdefault(ws.output, []).append(workspace_id)
-        return MappingProxyType({key: tuple(value) for key, value in buckets.items()})
+        buckets: dict[str, list[Workspace]] = {}
+        for ws in self.workspaces.values():
+            if ws.output is None:
+                continue
+            buckets.setdefault(ws.output, []).append(ws)
+        return MappingProxyType(
+            {
+                key: tuple(workspace.id for workspace in sorted(value, key=lambda w: (w.idx, w.id)))
+                for key, value in buckets.items()
+            }
+        )
 
     @cached_property
     def windows_by_workspace(self) -> MappingProxyType[int, tuple[int, ...]]:
@@ -66,7 +73,7 @@ class Snapshot(BaseModel, frozen=True):
             if win.workspace_id is None:
                 continue
             buckets.setdefault(win.workspace_id, []).append(window_id)
-        return MappingProxyType({key: tuple(value) for key, value in buckets.items()})
+        return MappingProxyType({key: tuple(sorted(value)) for key, value in buckets.items()})
 
     @cached_property
     def active_workspace_by_output(self) -> MappingProxyType[str, int]:
