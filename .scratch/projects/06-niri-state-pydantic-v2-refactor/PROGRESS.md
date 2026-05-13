@@ -18,6 +18,11 @@
 - [x] Create PLAN.md
 - [x] Create ASSUMPTIONS.md
 - [x] Create NIRI_STATE_REFACTORING_OVERVIEW.md with complete analysis
+- [x] Update `REFINED_V2_REWRITE_CODE_SKELETON.md` from `Refined_Rewrite_Patch_Updates.md`
+  - Added missing tree entries and runtime seams
+  - Locked API direction (`snapshot` property path)
+  - Added protocol helper type re-exports and resync changeset helper
+  - Added mandatory implementation-contract appendix
 
 ### Pending
 

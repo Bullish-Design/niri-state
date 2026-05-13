@@ -1,6 +1,48 @@
-Part 1 of 3 — consolidated package tree and core state layer.
+## Rewrite briefing (read first)
 
-I’m folding in the small fixes from the earlier skeleton as I go, so this version is the cleaned-up one.
+This document is the canonical implementation skeleton for the complete `niri-state` v2 rewrite. Treat it as the source of truth for architecture, runtime lifecycle, and test seams while replacing the current implementation.
+
+Before writing code, align on these constraints:
+
+1. Scope:
+   - Full rewrite of state models, reducers, bootstrap/runtime lifecycle, selectors, and wait/observe surfaces.
+   - Keep `niri-pypc` as the protocol/runtime boundary; do not leak transport concerns into public state APIs.
+2. API compatibility stance:
+   - Keep `snapshot` as a property.
+   - Keep classmethod/constructor-style `start` compatibility.
+   - Preserve selector re-exports and `__version__` surface.
+   - Any deliberate v2 break must be explicitly documented.
+3. Runtime correctness contracts:
+   - Bootstrap must be race-safe: buffer events during query phase, replay buffered events, then publish revision `1`.
+   - Refresh/resync must be atomic: stop loop, bootstrap via fresh bundle, install new engine/snapshot, restart loop, then close old bundle.
+   - Desync transitions must set diagnostics desync state and health `STALE` consistently.
+4. Determinism and invariants:
+   - Reconcile and invariant passes are mandatory after reducer application.
+   - Derived index ordering must be stable (`workspaces_by_output` by `(idx, id)`, `windows_by_workspace` stable by `id` minimum).
+5. Test strategy:
+   - Build exact upstream typed factories first (models + events).
+   - Unit tests cover reducers/reconcile/invariants/selectors/waiters.
+   - Integration tests cover bootstrap, mutation loop, refresh/resync, close lifecycle, overflow behavior.
+   - Replay tests validate convergence and invariant stability on each step.
+
+Implementation sequence (recommended):
+
+1. Land protocol/model/event factories aligned to generated upstream types.
+2. Implement reducer field semantics and complete reconcile/invariant coverage.
+3. Implement bootstrap buffering and store lifecycle seams.
+4. Implement refresh/resync safety path and diagnostics carry-forward behavior.
+5. Finish integration/replay coverage; then remove legacy architecture paths.
+
+Quality gates for Python edits in this repo:
+
+1. `devenv shell -- ruff check .`
+2. `devenv shell -- ruff format --check .`
+3. `devenv shell -- ty check .` when interfaces/types/contracts change
+4. Targeted or full tests via `devenv shell -- pytest ...` depending on blast radius
+
+## Core state layer
+
+Use this section as the implementation baseline for package structure and core state APIs.
 
 ---
 
@@ -9,6 +51,7 @@ I’m folding in the small fixes from the earlier skeleton as I go, so this vers
 ```text id="pk3kx9"
 src/niri_state/
   __init__.py
+  _version.py
   protocol.py
   config.py
   errors.py
@@ -39,8 +82,11 @@ src/niri_state/
     aggregates.py
 
 tests/
+  conftest.py
   factories/
     __init__.py
+    events.py
+    bundle.py
     protocol.py
     raw_frames.py
 
@@ -65,6 +111,7 @@ tests/
     test_close_lifecycle.py
 
   replay/
+    traces/
     test_replay_traces.py
 ```
 
@@ -156,9 +203,13 @@ from niri_pypc.types.generated.event import (
 )
 from niri_pypc.types.generated.models import (
     KeyboardLayouts,
+    LogicalOutput,
+    Mode,
     Output,
     Overview,
+    Timestamp,
     Window,
+    WindowLayout,
     Workspace,
 )
 from niri_pypc.types.generated.reply import (
@@ -190,6 +241,8 @@ __all__ = [
     "FocusedWindowRequest",
     "FocusedWindowResponse",
     "KeyboardLayouts",
+    "LogicalOutput",
+    "Mode",
     "KeyboardLayoutsChangedEvent",
     "KeyboardLayoutSwitchedEvent",
     "KeyboardLayoutsRequest",
@@ -204,10 +257,12 @@ __all__ = [
     "OverviewStateRequest",
     "OverviewStateResponse",
     "ScreenshotCapturedEvent",
+    "Timestamp",
     "UnknownEvent",
     "VersionRequest",
     "VersionResponse",
     "Window",
+    "WindowLayout",
     "WindowClosedEvent",
     "WindowFocusChangedEvent",
     "WindowFocusTimestampChangedEvent",
@@ -437,7 +492,7 @@ class SubscriptionOverflowError(NiriStateError):
     pass
 
 
-class WaitTimeoutError(NiriStateError):
+class WaitTimeoutError(TimeoutError, NiriStateError):
     def __init__(
         self,
         message: str,
@@ -693,6 +748,18 @@ def refresh_changeset(
     return ChangeSet(
         revision=revision,
         cause=ChangeCause.REFRESH,
+        domains=domains,
+    )
+
+
+def resync_changeset(
+    *,
+    revision: int,
+    domains: frozenset[ChangedDomain],
+) -> ChangeSet:
+    return ChangeSet(
+        revision=revision,
+        cause=ChangeCause.RESYNC,
         domains=domains,
     )
 
@@ -1018,9 +1085,9 @@ That is the consolidated core.
 
 ---
 
-Part 2 of 3 — consolidated runtime and reduction layer.
+## Runtime and reducers
 
-This folds the earlier skeleton into one clean runtime pass.
+Implement this section as the canonical runtime and event-reduction design.
 
 ---
 
@@ -1707,8 +1774,12 @@ class ResyncCoordinator:
         self._closed = False
         self._task: asyncio.Task[None] | None = None
 
-        if config.resync_policy is ResyncPolicy.AUTO:
-            self._task = asyncio.create_task(self._run())
+    async def start(self) -> None:
+        if self._task is not None:
+            return
+        if self._config.resync_policy is not ResyncPolicy.AUTO:
+            return
+        self._task = asyncio.create_task(self._run())
 
     def request(self) -> None:
         if self._closed:
@@ -1758,10 +1829,16 @@ from niri_state.changes import (
     close_changeset,
     event_changeset,
     health_changeset,
-    refresh_changeset,
+    resync_changeset,
 )
 from niri_state.config import InvariantFailurePolicy, NiriStateConfig, ResyncPolicy
-from niri_state.diagnostics import InvariantViolation, with_error, with_invariant_violations, with_resync
+from niri_state.diagnostics import (
+    InvariantViolation,
+    with_desync,
+    with_error,
+    with_invariant_violations,
+    with_resync,
+)
 from niri_state.engine_state import EngineState
 from niri_state.errors import DesyncError, InvariantError, StateLifecycleError
 from niri_state.health import HealthState, validate_transition
@@ -1792,6 +1869,7 @@ class NiriState:
     async def _open_bundle(self) -> NiriConnectionBundle:
         return await NiriConnectionBundle.open(config=self._config.pypc)
 
+    @property
     def snapshot(self) -> Snapshot:
         if self._snapshot is None:
             raise StateLifecycleError(
@@ -1805,8 +1883,31 @@ class NiriState:
             return HealthState.BOOTSTRAPPING
         return self._engine.health
 
-    def subscribe(self) -> AsyncIterator[PublishedState]:
-        return self._broadcaster.subscribe()
+    async def subscribe(self) -> AsyncIterator[PublishedState]:
+        if self._snapshot is not None:
+            yield PublishedState(
+                snapshot=self._snapshot,
+                changes=health_changeset(revision=self._snapshot.revision),
+            )
+        async for published in self._broadcaster.subscribe():
+            yield published
+
+    def _install_bootstrap_outcome(self, outcome) -> None:
+        self._engine = outcome.engine
+        self._snapshot = outcome.initial_snapshot
+        self._revision = outcome.initial_snapshot.revision
+
+    def _start_mutation_loop(self) -> None:
+        if self._mutation_task is None or self._mutation_task.done():
+            self._mutation_task = asyncio.create_task(self._mutation_loop())
+
+    async def _stop_mutation_loop(self) -> None:
+        if self._mutation_task is None:
+            return
+        self._mutation_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await self._mutation_task
+        self._mutation_task = None
 
     async def connect(self) -> None:
         async with self._lock:
@@ -1824,9 +1925,7 @@ class NiriState:
             self._bundle = await self._open_bundle()
             outcome = await run_bootstrap(self._bundle, config=self._config)
 
-            self._engine = outcome.engine
-            self._snapshot = outcome.initial_snapshot
-            self._revision = outcome.initial_snapshot.revision
+            self._install_bootstrap_outcome(outcome)
 
             await self._broadcaster.publish(
                 PublishedState(
@@ -1835,7 +1934,8 @@ class NiriState:
                 )
             )
 
-            self._mutation_task = asyncio.create_task(self._mutation_loop())
+            self._start_mutation_loop()
+            await self._resync.start()
             self._started = True
 
     async def start(self) -> NiriState:
@@ -1935,9 +2035,10 @@ class NiriState:
     async def _mark_desynced(self, exc: DesyncError) -> None:
         assert self._engine is not None
 
-        self._engine.diagnostics = with_error(
+        self._engine.diagnostics = with_desync(
             self._engine.diagnostics,
             message=str(exc),
+            event_type=exc.event_type,
         )
         await self._transition_health(HealthState.STALE)
         reconcile(self._engine)
@@ -1990,10 +2091,14 @@ class NiriState:
                     operation="refresh",
                 )
 
+            old_bundle = self._bundle
+            await self._stop_mutation_loop()
+            self._engine = None
+            self._bundle = await self._open_bundle()
+
             outcome = await run_bootstrap(self._bundle, config=self._config)
             self._engine = outcome.engine
             self._engine.diagnostics = with_resync(self._engine.diagnostics)
-            self._engine.health = HealthState.LIVE
 
             self._revision += 1
             self._snapshot = self._engine.freeze(revision=self._revision)
@@ -2001,7 +2106,7 @@ class NiriState:
             await self._broadcaster.publish(
                 PublishedState(
                     snapshot=self._snapshot,
-                    changes=refresh_changeset(
+                    changes=resync_changeset(
                         revision=self._snapshot.revision,
                         domains=frozenset(
                             {
@@ -2018,6 +2123,9 @@ class NiriState:
                     ),
                 )
             )
+            self._start_mutation_loop()
+            if old_bundle is not None:
+                await old_bundle.close()
 
             return self._snapshot
 
@@ -2028,10 +2136,7 @@ class NiriState:
 
             self._closed = True
 
-            if self._mutation_task is not None:
-                self._mutation_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await self._mutation_task
+            await self._stop_mutation_loop()
 
             if (
                 self._engine is not None
@@ -2062,9 +2167,9 @@ That is the consolidated runtime layer.
 ---
 
 
-Part 3 of 3 — selectors, waiters, and consolidated test skeleton.
+## Selectors, waiters, and tests
 
-This finishes the package skeleton.
+Implement this section to complete query surfaces and executable test scaffolding.
 
 ---
 
@@ -2344,6 +2449,7 @@ T = TypeVar("T")
 
 
 class WaitableState(Protocol):
+    @property
     def snapshot(self) -> Snapshot: ...
     def subscribe(self) -> AsyncIterator[PublishedState]: ...
 
@@ -2364,7 +2470,7 @@ async def _subscription_iter(state: WaitableState) -> AsyncIterator[Snapshot]:
 
 
 async def watch(state: WaitableState) -> AsyncIterator[Snapshot]:
-    yield state.snapshot()
+    yield state.snapshot
     async for snapshot in _subscription_iter(state):
         yield snapshot
 
@@ -2376,7 +2482,7 @@ async def wait_until(
     config: NiriStateConfig,
     timeout: float | None = None,
 ) -> Snapshot:
-    current = state.snapshot()
+    current = state.snapshot
     if _health_allows_wait(snapshot=current, config=config) and predicate(current):
         return current
 
@@ -2912,7 +3018,7 @@ from niri_state.store import NiriState
 @pytest.mark.asyncio
 async def test_runtime_publishes_after_event(fake_runtime_bundle) -> None:
     state = NiriState()
-    # TODO: monkeypatch state._open_bundle to return fake_runtime_bundle
+    # Required: monkeypatch state._open_bundle to return fake_runtime_bundle.
     # await state.connect()
     # published = await anext(state.subscribe())
     # assert published.snapshot.revision >= 1
@@ -2930,7 +3036,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_refresh_replaces_snapshot(fake_runtime_bundle) -> None:
-    # TODO: implement using bundle seam in NiriState._open_bundle
+    # Required: implement using the bundle seam in NiriState._open_bundle.
     assert True
 ```
 
@@ -2946,7 +3052,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_auto_resync_requests_refresh(fake_runtime_bundle) -> None:
-    # TODO: implement once fake bundle emits a desync-producing event path
+    # Required: implement with a fake bundle that emits a desync-producing event path.
     assert True
 ```
 
@@ -2962,7 +3068,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_close_transitions_state(fake_runtime_bundle) -> None:
-    # TODO: implement once runtime seam is wired
+    # Required: implement once runtime seam wiring is in place.
     assert True
 ```
 
@@ -2978,43 +3084,58 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_replay_trace_converges() -> None:
-    # TODO: implement from saved typed event traces
+    # Required: implement from saved typed event traces.
     assert True
 ```
 
 ---
 
-## Recommended first cleanup pass before real implementation
+## Implementation contract appendix (mandatory)
 
-There are three places I would tighten immediately once you start coding against the real `niri-pypc` models:
-
-1. `tests/factories/protocol.py`
-
-   * align all payload keys exactly to the generated model fields.
-
-2. `reducers.py`
-
-   * replace any remaining implicit assumptions like `event.idx`, `event.layout`, `event.workspace_id`, `event.active_window_id` with exact upstream field names.
-
-3. `bootstrap.py`
-
-   * tighten `query_version()` to the exact version payload shape.
-
-That is normal; the skeleton is intentionally architecture-first.
+1. Public API lock:
+   - keep `snapshot` as a property (`state.snapshot`)
+   - keep `start` as compatibility classmethod/constructor style
+   - keep selector re-exports in `__init__.py`
+   - preserve `__version__` via `src/niri_state/_version.py`
+2. Factory alignment:
+   - `tests/factories/protocol.py` must use exact generated model field names
+   - add helpers: `make_timestamp`, `make_window_layout`, `make_mode`, `make_logical_output`
+   - `Window.layout` must be populated with a real `WindowLayout`
+   - `Workspace.output` must allow `None`
+3. Reducer field contracts:
+   - urgency events use `event.urgent` (not `is_urgent`)
+   - `WindowLayoutsChangedEvent` consumes `changes: list[tuple[int, WindowLayout]]`
+   - `WorkspaceActivatedEvent` must honor `focused`
+   - `WindowFocusChangedEvent.id` is nullable and must clear focus when `None`
+4. Lifecycle contract:
+   - bootstrap must buffer events during query phase, then replay buffered events before publishing rev `1`
+   - `refresh()` must stop mutation loop, bootstrap with a fresh bundle, atomically install, restart loop, then close old bundle
+   - auto-resync uses `ChangeCause.RESYNC`; manual refresh uses `ChangeCause.REFRESH`
+5. Diagnostics contract:
+   - `_mark_desynced()` uses `with_desync(...)`, includes `event_type` when present, and transitions to `STALE`
+   - successful resync preserves cumulative counters (for example `resync_count`)
+6. Subscriber contract:
+   - `subscribe()` yields current snapshot first (if present), then future publications
+   - overflow policy behavior must be explicit (fail subscription vs fail store)
+7. Determinism contract:
+   - `workspaces_by_output` sorted by `(idx, id)`
+   - `windows_by_workspace` sorted by stable key (`id` minimum)
+8. Invariant coverage:
+   - include ID/key consistency, focused ID validity, workspace/window cross-links, derived-index consistency, and duplicate-ID guards
+9. Reconcile coverage:
+   - focused window/workspace derivation, stale `active_window_id` cleanup, keyboard current-index tolerance, and diagnostics/health coherence
+10. Test scaffolding:
+   - add `tests/conftest.py`, `tests/factories/events.py`, `tests/factories/bundle.py`, and `tests/replay/traces/`
+   - integration coverage must include bootstrap publish, mutation revisions, desync-to-stale, auto-resync retry/backoff, atomic refresh, close publish, and overflow policy
 
 ---
 
-## Final recommendation on how to use this skeleton
+## Implementation order (execution plan)
 
-I would now:
+Implement in this order:
 
-1. create a fresh branch,
-2. add this new tree in parallel,
-3. make the factories compile against the real upstream generated models,
-4. get the state-layer unit tests green first,
-5. then wire bootstrap,
-6. then reducers,
-7. then runtime,
-8. then delete the legacy architecture.
-
-This gives you the clean rewrite path without mixing old and new concerns.
+1. factories and event fixtures against exact upstream generated types,
+2. reducer corrections and reconcile/invariant completion,
+3. bootstrap buffering and store lifecycle seams (`_install_bootstrap_outcome`, `_start_mutation_loop`, `_stop_mutation_loop`, `_publish_snapshot`),
+4. refresh/resync safety path with fresh bundle replacement,
+5. integration and replay tests using typed traces.
