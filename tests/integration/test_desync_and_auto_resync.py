@@ -19,12 +19,11 @@ async def test_auto_resync_requests_refresh() -> None:
     )
     second = FakeBundle(client=FakeClient())
     bundles = [first, second]
-    state = NiriState(config=NiriStateConfig(resync_policy=ResyncPolicy.AUTO))
 
     async def _open_bundle() -> FakeBundle:
         return bundles.pop(0)
 
-    state._open_bundle = _open_bundle  # type: ignore[method-assign]
+    state = NiriState(config=NiriStateConfig(resync_policy=ResyncPolicy.AUTO), bundle_factory=_open_bundle)
     await state.connect()
 
     for _ in range(30):

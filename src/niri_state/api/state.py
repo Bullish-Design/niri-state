@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from niri_state.adapters.protocol import NiriConnectionBundle
 from niri_state.api.changes import (
@@ -52,12 +52,22 @@ _FULL_DOMAINS = frozenset(
 
 class NiriState:
     @classmethod
-    async def open(cls, config: NiriStateConfig | None = None) -> NiriState:
-        state = cls(config)
+    async def open(
+        cls,
+        config: NiriStateConfig | None = None,
+        *,
+        bundle_factory: Callable[[], Awaitable[NiriConnectionBundle]] | None = None,
+    ) -> NiriState:
+        state = cls(config, bundle_factory=bundle_factory)
         await state.connect()
         return state
 
-    def __init__(self, config: NiriStateConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: NiriStateConfig | None = None,
+        *,
+        bundle_factory: Callable[[], Awaitable[NiriConnectionBundle]] | None = None,
+    ) -> None:
         self._config = config or NiriStateConfig()
         self._lock = asyncio.Lock()
         self._started = False
@@ -71,6 +81,9 @@ class NiriState:
         self._mutation_task: asyncio.Task[None] | None = None
         self._broadcaster = Broadcaster(self._config)
         self._resync = ResyncCoordinator(self, self._config)
+
+        if bundle_factory is not None:
+            self._open_bundle = bundle_factory  # type: ignore[assignment]
 
     async def _open_bundle(self) -> NiriConnectionBundle:
         return await NiriConnectionBundle.open(config=self._config.pypc)

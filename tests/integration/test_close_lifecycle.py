@@ -8,12 +8,10 @@ from niri_state.api.state import NiriState
 
 @pytest.mark.asyncio
 async def test_close_transitions_state(fake_runtime_bundle) -> None:
-    state = NiriState()
-
     async def _open_bundle():
         return fake_runtime_bundle
 
-    state._open_bundle = _open_bundle  # type: ignore[method-assign]
+    state = NiriState(bundle_factory=_open_bundle)
     await state.connect()
     await state.close()
 
@@ -22,12 +20,10 @@ async def test_close_transitions_state(fake_runtime_bundle) -> None:
 
 @pytest.mark.asyncio
 async def test_context_manager_opens_and_closes(fake_runtime_bundle) -> None:
-    state = NiriState()
-
     async def _open_bundle():
         return fake_runtime_bundle
 
-    state._open_bundle = _open_bundle  # type: ignore[method-assign]
+    state = NiriState(bundle_factory=_open_bundle)
 
     async with state:
         assert state.snapshot is not None

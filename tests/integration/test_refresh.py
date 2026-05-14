@@ -14,12 +14,11 @@ async def test_refresh_replaces_snapshot() -> None:
     first = FakeBundle(client=FakeClient(windows=[make_window(id=100)]))
     second = FakeBundle(client=FakeClient(windows=[make_window(id=200)]))
     bundles = [first, second]
-    state = NiriState()
 
     async def _open_bundle() -> FakeBundle:
         return bundles.pop(0)
 
-    state._open_bundle = _open_bundle  # type: ignore[method-assign]
+    state = NiriState(bundle_factory=_open_bundle)
     await state.connect()
     before = state.snapshot
     assert 100 in state.snapshot.windows
