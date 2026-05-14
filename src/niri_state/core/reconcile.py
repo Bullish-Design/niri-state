@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, cast
 
+from niri_state.api.health import HealthState
 from niri_state.core.diagnostics import with_note
 from niri_state.core.engine_state import EngineState
-from niri_state.health import HealthState
 
 
 def reconcile(engine: EngineState) -> None:

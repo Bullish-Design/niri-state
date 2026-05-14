@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 from time import time
 
 from niri_state.adapters.protocol import KeyboardLayouts, Output, Overview, Window, Workspace
+from niri_state.api.health import HealthState
+from niri_state.api.snapshot import Snapshot
 from niri_state.core.diagnostics import Compatibility, Diagnostics
-from niri_state.health import HealthState
-from niri_state.snapshot import Snapshot
 
 
 @dataclass(slots=True)

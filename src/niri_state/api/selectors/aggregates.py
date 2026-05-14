@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
-from niri_state.protocol import Window, Workspace
-from niri_state.snapshot import Snapshot
+from niri_state.adapters.protocol import Window, Workspace
+from niri_state.api.snapshot import Snapshot
 
 
 class FocusedContext(BaseModel, frozen=True):

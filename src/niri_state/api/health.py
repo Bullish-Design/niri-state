@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from niri_state.errors import StateLifecycleError
+from niri_state.api.errors import StateLifecycleError
 
 
 class HealthState(StrEnum):

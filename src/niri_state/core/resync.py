@@ -4,8 +4,8 @@ import asyncio
 import contextlib
 from typing import Protocol
 
-from niri_state.changes import ChangeCause
-from niri_state.config import NiriStateConfig, ResyncPolicy
+from niri_state.api.changes import ChangeCause
+from niri_state.api.config import NiriStateConfig, ResyncPolicy
 from niri_state.observability.logging import get_logger
 
 _LOGGER = get_logger(__name__)

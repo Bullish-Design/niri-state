@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import TypeAdapter
 
-from niri_state.protocol import (
+from niri_state.adapters.protocol import (
     KeyboardLayouts,
     LogicalOutput,
     Mode,

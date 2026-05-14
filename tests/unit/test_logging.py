@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from niri_state.logging import get_logger
+from niri_state.observability.logging import get_logger
 
 
 def test_get_logger_preserves_niri_state_namespace() -> None:

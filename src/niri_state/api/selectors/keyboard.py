@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from niri_state.protocol import KeyboardLayouts
-from niri_state.snapshot import Snapshot
+from niri_state.adapters.protocol import KeyboardLayouts
+from niri_state.api.snapshot import Snapshot
 
 
 def get_keyboard_layouts(snapshot: Snapshot) -> KeyboardLayouts:

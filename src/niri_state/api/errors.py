@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from niri_state.core.diagnostics import InvariantViolation
 
 if TYPE_CHECKING:
-    from niri_state.health import HealthState
+    from niri_state.api.health import HealthState
 
 
 class NiriStateError(Exception):

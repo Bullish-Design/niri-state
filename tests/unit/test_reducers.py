@@ -15,9 +15,9 @@ from tests.factories.protocol import (
     make_workspace,
 )
 
-from niri_state.changes import ChangedDomain
-from niri_state.engine_state import EngineState
-from niri_state.reducers import (
+from niri_state.api.changes import ChangedDomain
+from niri_state.core.engine_state import EngineState
+from niri_state.core.reducers import (
     reduce_window_layouts_changed,
     reduce_window_urgency_changed,
     reduce_windows_changed,

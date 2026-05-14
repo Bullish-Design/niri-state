@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 
-from niri_state.protocol import (
+from niri_state.adapters.protocol import (
     FocusedOutputRequest,
     FocusedOutputResponse,
     FocusedWindowRequest,

@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from niri_state.config import NiriStateConfig, ResyncPolicy
-from niri_state.health import HealthState
-from niri_state.store import NiriState
+from niri_state.api.config import NiriStateConfig, ResyncPolicy
+from niri_state.api.health import HealthState
+from niri_state.api.state import NiriState
 from tests.factories.bundle import FakeBundle, FakeClient
 from tests.factories.events import make_window_urgency_changed_event
 

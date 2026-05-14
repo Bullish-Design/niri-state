@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from niri_state.bootstrap import run_bootstrap
-from niri_state.config import NiriStateConfig
-from niri_state.health import HealthState
+from niri_state.api.config import NiriStateConfig
+from niri_state.api.health import HealthState
+from niri_state.core.bootstrap import run_bootstrap
 from tests.factories.bundle import FakeBundle, FakeClient
 from tests.factories.events import make_windows_changed_event
 from tests.factories.protocol import make_window

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from niri_state.protocol import Overview
-from niri_state.snapshot import Snapshot
+from niri_state.adapters.protocol import Overview
+from niri_state.api.snapshot import Snapshot
 
 
 def get_overview(snapshot: Snapshot) -> Overview:

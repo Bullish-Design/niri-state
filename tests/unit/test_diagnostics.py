@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from niri_state.diagnostics import Diagnostics, InvariantViolation, with_desync, with_invariant_violations
+from niri_state.core.diagnostics import Diagnostics, InvariantViolation, with_desync, with_invariant_violations
 
 
 def test_with_desync_marks_diagnostic() -> None:

@@ -23,11 +23,11 @@ from niri_state.adapters.protocol import (
     WorkspacesChangedEvent,
     WorkspaceUrgencyChangedEvent,
 )
-from niri_state.changes import ChangedDomain
-from niri_state.config import NiriStateConfig, UnknownEventPolicy
+from niri_state.api.changes import ChangedDomain
+from niri_state.api.config import NiriStateConfig, UnknownEventPolicy
+from niri_state.api.errors import DesyncError, ReductionError
 from niri_state.core.diagnostics import with_desync, with_event_applied
 from niri_state.core.engine_state import EngineState
-from niri_state.errors import DesyncError, ReductionError
 
 
 @dataclass(frozen=True, slots=True)

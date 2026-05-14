@@ -5,13 +5,13 @@ from collections.abc import AsyncIterator
 import pytest
 from tests.factories.protocol import make_keyboard_layouts, make_output, make_overview, make_window, make_workspace
 
-from niri_state.broadcaster import PublishedState
-from niri_state.changes import ChangeCause, ChangeSet
-from niri_state.config import NiriStateConfig
-from niri_state.diagnostics import Compatibility, Diagnostics
-from niri_state.health import HealthState
-from niri_state.snapshot import Snapshot
-from niri_state.waiters import wait_until, watch
+from niri_state.api.changes import ChangeCause, ChangeSet
+from niri_state.api.config import NiriStateConfig
+from niri_state.api.health import HealthState
+from niri_state.api.snapshot import Snapshot
+from niri_state.api.waiters import wait_until, watch
+from niri_state.core.broadcaster import PublishedState
+from niri_state.core.diagnostics import Compatibility, Diagnostics
 
 
 @pytest.mark.asyncio

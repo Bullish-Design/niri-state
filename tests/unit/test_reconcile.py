@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from tests.factories.protocol import make_keyboard_layouts, make_overview, make_window, make_workspace
 
-from niri_state.engine_state import EngineState
-from niri_state.reconcile import reconcile
+from niri_state.core.engine_state import EngineState
+from niri_state.core.reconcile import reconcile
 
 
 def test_reconcile_clears_missing_focused_window() -> None:

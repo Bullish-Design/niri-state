@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from niri_pypc import BackpressureMode
 
-from niri_state.config import (
+from niri_state.api.config import (
     InvariantFailurePolicy,
     SubscriberOverflowPolicy,
     UnknownEventPolicy,

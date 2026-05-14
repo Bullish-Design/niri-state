@@ -23,17 +23,17 @@ from niri_state.adapters.protocol import (
     Workspace,
     WorkspacesRequest,
 )
-from niri_state.changes import ChangeSet, bootstrap_changeset
-from niri_state.config import InvariantFailurePolicy, NiriStateConfig
+from niri_state.api.changes import ChangeSet, bootstrap_changeset
+from niri_state.api.config import InvariantFailurePolicy, NiriStateConfig
+from niri_state.api.errors import BootstrapError, InvariantError
+from niri_state.api.health import HealthState
+from niri_state.api.snapshot import Snapshot
 from niri_state.core.diagnostics import Compatibility, Diagnostics, with_invariant_violations, with_note
 from niri_state.core.engine_state import EngineState
 from niri_state.core.invariants import collect_invariant_violations
 from niri_state.core.reconcile import reconcile
 from niri_state.core.reducers import reduce_event
-from niri_state.errors import BootstrapError, InvariantError
-from niri_state.health import HealthState
 from niri_state.observability.logging import get_logger
-from niri_state.snapshot import Snapshot
 
 _LOGGER = get_logger(__name__)
 

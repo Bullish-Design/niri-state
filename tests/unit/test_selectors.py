@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from tests.factories.protocol import make_keyboard_layouts, make_overview, make_window
 
-from niri_state.diagnostics import Compatibility, Diagnostics
-from niri_state.health import HealthState
-from niri_state.selectors.focus import get_focused_window
-from niri_state.snapshot import Snapshot
+from niri_state.api.health import HealthState
+from niri_state.api.selectors.focus import get_focused_window
+from niri_state.api.snapshot import Snapshot
+from niri_state.core.diagnostics import Compatibility, Diagnostics
 
 
 def test_get_focused_window_returns_window() -> None:

@@ -8,10 +8,10 @@ from tests.factories.protocol import (
     make_workspace,
 )
 
-from niri_state.diagnostics import Compatibility, Diagnostics
-from niri_state.health import HealthState
-from niri_state.invariants import collect_invariant_violations
-from niri_state.snapshot import Snapshot
+from niri_state.api.health import HealthState
+from niri_state.api.snapshot import Snapshot
+from niri_state.core.diagnostics import Compatibility, Diagnostics
+from niri_state.core.invariants import collect_invariant_violations
 
 
 def test_collects_missing_workspace_for_window() -> None:

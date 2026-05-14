@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from niri_state.api.errors import InvariantError
+from niri_state.api.snapshot import Snapshot
 from niri_state.core.diagnostics import InvariantViolation
-from niri_state.errors import InvariantError
-from niri_state.snapshot import Snapshot
 
 
 def collect_invariant_violations(snapshot: Snapshot) -> tuple[InvariantViolation, ...]:

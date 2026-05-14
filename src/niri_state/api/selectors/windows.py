@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from niri_state.protocol import Window
-from niri_state.snapshot import Snapshot
+from niri_state.adapters.protocol import Window
+from niri_state.api.snapshot import Snapshot
 
 
 def get_window(snapshot: Snapshot, window_id: int) -> Window | None:

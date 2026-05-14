@@ -4,9 +4,9 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from niri_state.diagnostics import Compatibility, Diagnostics
-from niri_state.health import HealthState
-from niri_state.snapshot import Snapshot
+from niri_state.api.health import HealthState
+from niri_state.api.snapshot import Snapshot
+from niri_state.core.diagnostics import Compatibility, Diagnostics
 from tests.factories.bundle import FakeBundle
 from tests.factories.protocol import (
     make_keyboard_layouts,

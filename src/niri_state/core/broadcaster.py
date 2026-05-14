@@ -5,11 +5,11 @@ import contextlib
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
-from niri_state.changes import ChangeSet
-from niri_state.config import NiriStateConfig, SubscriberOverflowPolicy
-from niri_state.errors import SubscriptionOverflowError
+from niri_state.api.changes import ChangeSet
+from niri_state.api.config import NiriStateConfig, SubscriberOverflowPolicy
+from niri_state.api.errors import SubscriptionOverflowError
+from niri_state.api.snapshot import Snapshot
 from niri_state.observability.logging import get_logger
-from niri_state.snapshot import Snapshot
 
 _LOGGER = get_logger(__name__)
 

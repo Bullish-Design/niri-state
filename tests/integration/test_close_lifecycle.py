@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from niri_state.health import HealthState
-from niri_state.store import NiriState
+from niri_state.api.health import HealthState
+from niri_state.api.state import NiriState
 
 
 @pytest.mark.asyncio

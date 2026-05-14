@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from niri_state.protocol import (
+from niri_state.adapters.protocol import (
     ConfigLoadedEvent,
     EventValue,
     KeyboardLayoutsChangedEvent,

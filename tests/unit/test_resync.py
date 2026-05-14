@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from niri_state.changes import ChangeCause
-from niri_state.config import NiriStateConfig, ResyncPolicy
-from niri_state.resync import ResyncCoordinator
+from niri_state.api.changes import ChangeCause
+from niri_state.api.config import NiriStateConfig, ResyncPolicy
+from niri_state.core.resync import ResyncCoordinator
 
 
 class _DummyState:
@@ -95,7 +95,7 @@ async def test_auto_resync_uses_exponential_backoff(monkeypatch: pytest.MonkeyPa
         delays.append(delay)
         await real_sleep(0)
 
-    monkeypatch.setattr("niri_state.resync.asyncio.sleep", _sleep)
+    monkeypatch.setattr("niri_state.core.resync.asyncio.sleep", _sleep)
 
     coordinator = ResyncCoordinator(
         state,

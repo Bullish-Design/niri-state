@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from niri_state.store import NiriState
+from niri_state.api.state import NiriState
 from tests.factories.bundle import FakeBundle, FakeClient
 from tests.factories.protocol import make_window
 

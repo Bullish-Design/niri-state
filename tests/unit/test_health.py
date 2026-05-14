@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from niri_state.errors import StateLifecycleError
-from niri_state.health import HealthState, validate_transition
+from niri_state.api.errors import StateLifecycleError
+from niri_state.api.health import HealthState, validate_transition
 
 
 def test_validate_transition_allows_live_to_stale() -> None:
