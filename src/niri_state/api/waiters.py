@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator, Callable
 from typing import Protocol
 
 from niri_state.api.config import NiriStateConfig, WaitHealthPolicy
-from niri_state.api.errors import WaitTimeoutError
+from niri_state.api.errors import StateLifecycleError, WaitTimeoutError
 from niri_state.api.health import HealthState
 from niri_state.api.snapshot import Snapshot
 from niri_state.core.broadcaster import PublishedState
@@ -57,6 +57,12 @@ async def wait_until(
 
     async def _wait() -> Snapshot:
         async for snapshot in _subscription_iter(state):
+            if snapshot.health in {HealthState.CLOSED, HealthState.FAILED}:
+                raise StateLifecycleError(
+                    f"state transitioned to {snapshot.health.value} while waiting for predicate",
+                    current_state=snapshot.health,
+                    operation="wait_until",
+                )
             if not _health_allows_wait(snapshot=snapshot, config=config):
                 continue
             if predicate(snapshot):

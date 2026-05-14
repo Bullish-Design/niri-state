@@ -86,3 +86,53 @@ async def test_watch_skips_duplicate_initial_snapshot() -> None:
             break
 
     assert revisions == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_wait_until_raises_on_closed_health() -> None:
+    class _ClosingState:
+        @property
+        def snapshot(self) -> Snapshot:
+            return Snapshot(
+                revision=1,
+                timestamp=0.0,
+                health=HealthState.LIVE,
+                outputs={"HDMI-A-1": make_output()},
+                workspaces={1: make_workspace(id=1)},
+                windows={},
+                focused_workspace_id=1,
+                focused_window_id=None,
+                keyboard_layouts=make_keyboard_layouts(),
+                overview=make_overview(),
+                diagnostics=Diagnostics(),
+                compatibility=Compatibility(),
+            )
+
+        async def subscribe(self) -> AsyncIterator[PublishedState]:
+            yield PublishedState(
+                snapshot=Snapshot(
+                    revision=2,
+                    timestamp=1.0,
+                    health=HealthState.CLOSED,
+                    outputs={},
+                    workspaces={},
+                    windows={},
+                    focused_workspace_id=None,
+                    focused_window_id=None,
+                    keyboard_layouts=make_keyboard_layouts(),
+                    overview=make_overview(),
+                    diagnostics=Diagnostics(),
+                    compatibility=Compatibility(),
+                ),
+                changes=empty_changeset(2),
+            )
+
+    from niri_state.api.errors import StateLifecycleError
+
+    with pytest.raises(StateLifecycleError, match="closed"):
+        await wait_until(
+            _ClosingState(),
+            lambda s: False,
+            config=NiriStateConfig(),
+            timeout=1.0,
+        )
