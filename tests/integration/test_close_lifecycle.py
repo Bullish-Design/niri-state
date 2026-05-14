@@ -34,8 +34,8 @@ async def test_context_manager_opens_and_closes(fake_runtime_bundle) -> None:
 
 @pytest.mark.asyncio
 async def test_connect_when_already_started_raises() -> None:
-    from tests.factories.bundle import FakeBundle
     from niri_state.api.errors import StateLifecycleError
+    from tests.factories.bundle import FakeBundle
 
     bundle = FakeBundle()
 
@@ -53,8 +53,8 @@ async def test_connect_when_already_started_raises() -> None:
 
 @pytest.mark.asyncio
 async def test_connect_when_already_closed_raises() -> None:
-    from tests.factories.bundle import FakeBundle
     from niri_state.api.errors import StateLifecycleError
+    from tests.factories.bundle import FakeBundle
 
     bundle = FakeBundle()
 

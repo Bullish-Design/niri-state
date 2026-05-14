@@ -15,7 +15,6 @@ from tests.factories.events import (
     make_window_layouts_changed_event,
     make_window_opened_or_changed_event,
     make_window_urgency_changed_event,
-    make_windows_changed_event,
     make_workspace_activated_event,
     make_workspace_active_window_changed_event,
     make_workspace_urgency_changed_event,
