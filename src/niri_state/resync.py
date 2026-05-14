@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 from typing import Protocol
 
 from niri_state.changes import ChangeCause
 from niri_state.config import NiriStateConfig, ResyncPolicy
+from niri_state.logging import get_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 
 class _Refreshable(Protocol):

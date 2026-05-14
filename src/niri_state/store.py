@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 from collections.abc import AsyncIterator
 
 from niri_state.bootstrap import run_bootstrap
@@ -28,13 +27,14 @@ from niri_state.engine_state import EngineState
 from niri_state.errors import DesyncError, InvariantError, StateLifecycleError
 from niri_state.health import HealthState, validate_transition
 from niri_state.invariants import collect_invariant_violations
+from niri_state.logging import get_logger
 from niri_state.protocol import NiriConnectionBundle
 from niri_state.reconcile import reconcile
 from niri_state.reducers import reduce_event
 from niri_state.resync import ResyncCoordinator
 from niri_state.snapshot import Snapshot
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 _FULL_DOMAINS = frozenset(
     {

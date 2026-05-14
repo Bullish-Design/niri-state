@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 from niri_state.changes import ChangeSet
 from niri_state.config import NiriStateConfig, SubscriberOverflowPolicy
 from niri_state.errors import SubscriptionOverflowError
+from niri_state.logging import get_logger
 from niri_state.snapshot import Snapshot
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
