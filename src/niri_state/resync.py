@@ -40,12 +40,23 @@ class ResyncCoordinator:
             if self._closed:
                 return
 
+            await self._run_attempts()
+
+    async def _run_attempts(self) -> None:
+        max_attempts = int(self._config.resync_max_attempts)
+        backoff_base = float(self._config.resync_backoff_base)
+
+        for attempt in range(max_attempts):
             try:
                 await self._state.refresh(cause=ChangeCause.RESYNC)
+                return
             except asyncio.CancelledError:
                 raise
             except Exception:
-                continue
+                if attempt + 1 >= max_attempts:
+                    return
+                delay = backoff_base * (2**attempt)
+                await asyncio.sleep(delay)
 
     async def close(self) -> None:
         self._closed = True
