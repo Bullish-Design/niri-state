@@ -385,9 +385,12 @@ class NiriState:
                     )
                 )
 
-            if self._bundle is not None:
-                await self._bundle.close()
-
-            await self._resync.close()
-            await self._broadcaster.close()
+            try:
+                if self._bundle is not None:
+                    await self._bundle.close()
+            finally:
+                try:
+                    await self._resync.close()
+                finally:
+                    await self._broadcaster.close()
             _LOGGER.info("close completed")
