@@ -18,6 +18,7 @@ from niri_state.adapters.protocol import (
     WindowOpenedOrChangedEvent,
     WindowsChangedEvent,
     WindowUrgencyChangedEvent,
+    Workspace,
     WorkspaceActivatedEvent,
     WorkspaceActiveWindowChangedEvent,
     WorkspacesChangedEvent,
@@ -206,7 +207,7 @@ def reduce_workspace_activated(
             operation="reduce_workspace_activated",
         )
 
-    updated: dict[int, object] = {}
+    updated: dict[int, Workspace] = {}
     for workspace_id, existing in engine.workspaces.items():
         if existing.output != workspace.output:
             continue
