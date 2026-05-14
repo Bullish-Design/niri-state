@@ -44,6 +44,8 @@ class Broadcaster:
             return
 
         dead: list[_Subscriber] = []
+        first_error: SubscriptionOverflowError | None = None
+
         for subscriber in self._subscribers:
             try:
                 subscriber.queue.put_nowait(item)
@@ -59,21 +61,32 @@ class Broadcaster:
                         subscriber.queue.put_nowait(item)
                     except asyncio.QueueFull as exc:
                         dead.append(subscriber)
-                        raise SubscriptionOverflowError(
-                            "subscriber queue remained full after dropping oldest item",
-                            operation="broadcaster_publish",
-                            cause=exc,
-                        ) from exc
+                        if first_error is None:
+                            first_error = SubscriptionOverflowError(
+                                "subscriber queue remained full after dropping oldest item",
+                                operation="broadcaster_publish",
+                                cause=exc,
+                            )
                 else:
                     _LOGGER.error("subscriber queue overflowed with fail-fast policy")
                     dead.append(subscriber)
-                    raise SubscriptionOverflowError(
-                        "subscriber queue overflowed",
-                        operation="broadcaster_publish",
-                    ) from None
+                    if first_error is None:
+                        first_error = SubscriptionOverflowError(
+                            "subscriber queue overflowed",
+                            operation="broadcaster_publish",
+                        )
 
         for subscriber in dead:
+            with contextlib.suppress(asyncio.QueueFull):
+                try:
+                    _ = subscriber.queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                subscriber.queue.put_nowait(None)
             self._subscribers.discard(subscriber)
+
+        if first_error is not None:
+            raise first_error
 
     async def close(self) -> None:
         if self._closed:
@@ -84,9 +97,14 @@ class Broadcaster:
             try:
                 subscriber.queue.put_nowait(None)
             except asyncio.QueueFull:
-                with contextlib.suppress(asyncio.QueueFull):
-                    _ = subscriber.queue.get_nowait()
-                    subscriber.queue.put_nowait(None)
+                # Drain into an unbounded queue so the sentinel doesn't
+                # displace real data.
+                unbounded: asyncio.Queue[PublishedState | None] = asyncio.Queue()
+                while not subscriber.queue.empty():
+                    with contextlib.suppress(asyncio.QueueEmpty):
+                        unbounded.put_nowait(subscriber.queue.get_nowait())
+                unbounded.put_nowait(None)
+                subscriber.queue = unbounded
 
         self._subscribers.clear()
 
