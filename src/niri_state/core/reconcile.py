@@ -69,7 +69,6 @@ def _reconcile_diagnostics(engine: EngineState) -> None:
         update = cast(Mapping[str, Any], {"desynced": False})
         engine.diagnostics = engine.diagnostics.model_copy(update=update)
     if engine.health is HealthState.STALE and not engine.diagnostics.desynced:
-        engine.diagnostics = with_note(
-            engine.diagnostics,
-            note="health is stale without explicit desync marker",
-        )
+        note = "health is stale without explicit desync marker"
+        if note not in engine.diagnostics.notes:
+            engine.diagnostics = with_note(engine.diagnostics, note=note)

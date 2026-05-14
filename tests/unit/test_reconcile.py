@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from tests.factories.protocol import make_keyboard_layouts, make_overview, make_window, make_workspace
 
+from niri_state.api.health import HealthState
 from niri_state.core.engine_state import EngineState
 from niri_state.core.reconcile import reconcile
 
@@ -51,3 +52,17 @@ def test_reconcile_normalizes_keyboard_idx() -> None:
     keyboard_layouts = engine.keyboard_layouts
     assert keyboard_layouts is not None
     assert keyboard_layouts.current_idx == 0
+
+
+def test_reconcile_does_not_duplicate_stale_note() -> None:
+    engine = EngineState.empty()
+    engine.keyboard_layouts = make_keyboard_layouts()
+    engine.overview = make_overview()
+    engine.health = HealthState.STALE
+
+    reconcile(engine)
+    reconcile(engine)
+    reconcile(engine)
+
+    stale_notes = [n for n in engine.diagnostics.notes if "stale without" in n]
+    assert len(stale_notes) == 1
