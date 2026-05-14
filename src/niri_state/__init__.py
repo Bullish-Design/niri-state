@@ -1,3 +1,4 @@
+from niri_state._version import __version__
 from niri_state.changes import ChangeCause, ChangedDomain, ChangeSet
 from niri_state.config import (
     InvariantFailurePolicy,
@@ -47,5 +48,6 @@ __all__ = [
     "UnknownEventPolicy",
     "WaitHealthPolicy",
     "WaitTimeoutError",
+    "__version__",
     "strict_config",
 ]

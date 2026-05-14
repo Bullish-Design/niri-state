@@ -48,5 +48,6 @@ def test_reconcile_normalizes_keyboard_idx() -> None:
 
     reconcile(engine)
 
-    assert engine.keyboard_layouts is not None
-    assert engine.keyboard_layouts.current_idx == 0
+    keyboard_layouts = engine.keyboard_layouts
+    assert keyboard_layouts is not None
+    assert keyboard_layouts.current_idx == 0

@@ -12,7 +12,7 @@ authors = [
 
 dependencies = [
   "pydantic>=2.12.5",
-  "niri-pypc>=0.3.0",
+  "niri-pypc>=0.3.1,<0.4",
 ]
 
 [tool.uv.sources]
@@ -60,7 +60,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.mypy]
 python_version = "3.13"
-packages = ["src/niri_state"]
+packages = ["niri_state"]
 strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true
