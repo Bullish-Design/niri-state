@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from niri_state.core.diagnostics import InvariantViolation
+from niri_state.api.types import InvariantViolation
 
 if TYPE_CHECKING:
     from niri_state.api.health import HealthState

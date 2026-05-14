@@ -20,8 +20,8 @@ from niri_state.api.health import HealthState, validate_transition
 from niri_state.api.snapshot import Snapshot
 from niri_state.core.bootstrap import run_bootstrap
 from niri_state.core.broadcaster import Broadcaster, PublishedState
+from niri_state.api.types import InvariantViolation
 from niri_state.core.diagnostics import (
-    InvariantViolation,
     with_desync,
     with_error,
     with_invariant_violations,

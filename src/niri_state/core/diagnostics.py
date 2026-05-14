@@ -5,14 +5,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict
 
-
-class InvariantViolation(BaseModel, frozen=True):
-    model_config = ConfigDict(extra="forbid")
-
-    code: str
-    message: str
-    path: tuple[str | int, ...] = ()
-    severity: str = "error"
+from niri_state.api.types import InvariantViolation
 
 
 class Compatibility(BaseModel, frozen=True):
