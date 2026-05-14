@@ -52,3 +52,10 @@ Behavior is controlled by `UnknownEventPolicy`:
 - `STALE`: mark health stale and continue
 - `FAIL`: raise desync error
 - `IGNORE`: ignore and continue
+
+## Resync behavior
+
+When `resync_policy=ResyncPolicy.AUTO`, desync-triggered resync attempts use:
+
+- `resync_max_attempts`: maximum refresh attempts per resync request
+- `resync_backoff_base`: exponential backoff base in seconds (`base * 2^attempt_index`)
