@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 from collections.abc import AsyncIterator
 
 from niri_state.bootstrap import run_bootstrap
@@ -32,6 +33,8 @@ from niri_state.reconcile import reconcile
 from niri_state.reducers import reduce_event
 from niri_state.resync import ResyncCoordinator
 from niri_state.snapshot import Snapshot
+
+_LOGGER = logging.getLogger(__name__)
 
 _FULL_DOMAINS = frozenset(
     {
@@ -102,11 +105,13 @@ class NiriState:
 
     def _start_mutation_loop(self) -> None:
         if self._mutation_task is None or self._mutation_task.done():
+            _LOGGER.debug("starting mutation loop")
             self._mutation_task = asyncio.create_task(self._mutation_loop())
 
     async def _stop_mutation_loop(self) -> None:
         if self._mutation_task is None:
             return
+        _LOGGER.debug("stopping mutation loop")
         self._mutation_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await self._mutation_task
@@ -125,10 +130,12 @@ class NiriState:
                     operation="connect",
                 )
 
+            _LOGGER.info("connect started")
             bundle = await self._open_bundle()
             try:
                 outcome = await run_bootstrap(bundle, config=self._config)
             except Exception:
+                _LOGGER.exception("connect bootstrap failed; closing opened bundle")
                 await bundle.close()
                 raise
 
@@ -145,6 +152,7 @@ class NiriState:
             self._start_mutation_loop()
             await self._resync.start()
             self._started = True
+            _LOGGER.info("connect completed")
 
     async def start(self) -> NiriState:
         await self.connect()
@@ -199,10 +207,12 @@ class NiriState:
                 )
 
             except DesyncError as exc:
+                _LOGGER.warning("desync detected in mutation loop: %s", exc)
                 await self._mark_desynced(exc)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                _LOGGER.exception("mutation loop failed")
                 await self._fail(exc)
                 raise
 
@@ -241,6 +251,7 @@ class NiriState:
     async def _mark_desynced(self, exc: DesyncError) -> None:
         assert self._engine is not None
 
+        _LOGGER.warning("marking state stale due to desync: %s", exc)
         self._engine.diagnostics = with_desync(
             self._engine.diagnostics,
             reason=str(exc),
@@ -261,11 +272,13 @@ class NiriState:
         )
 
         if self._config.resync_policy is ResyncPolicy.AUTO:
+            _LOGGER.info("requesting auto-resync after desync")
             self._resync.request()
 
     async def _fail(self, exc: Exception) -> None:
         assert self._engine is not None
 
+        _LOGGER.error("transitioning state to failed: %s", exc)
         self._engine.diagnostics = with_error(
             self._engine.diagnostics,
             message=str(exc),
@@ -297,6 +310,7 @@ class NiriState:
                     operation="refresh",
                 )
 
+            _LOGGER.info("refresh started (cause=%s)", cause.value)
             old_bundle = self._bundle
             old_engine = self._engine
 
@@ -315,6 +329,7 @@ class NiriState:
                 self._bundle = old_bundle
                 self._engine = old_engine
                 self._start_mutation_loop()
+                _LOGGER.exception("refresh failed; restored previous bundle and mutation loop")
                 raise
 
             self._bundle = new_bundle
@@ -345,6 +360,7 @@ class NiriState:
 
             self._start_mutation_loop()
             await old_bundle.close()
+            _LOGGER.info("refresh completed (cause=%s)", cause.value)
             return self._snapshot
 
     async def close(self) -> None:
@@ -352,6 +368,7 @@ class NiriState:
             if self._closed:
                 return
 
+            _LOGGER.info("close started")
             self._closed = True
 
             await self._stop_mutation_loop()
@@ -373,3 +390,4 @@ class NiriState:
 
             await self._resync.close()
             await self._broadcaster.close()
+            _LOGGER.info("close completed")

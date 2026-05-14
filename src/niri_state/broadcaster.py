@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
@@ -9,6 +10,8 @@ from niri_state.changes import ChangeSet
 from niri_state.config import NiriStateConfig, SubscriberOverflowPolicy
 from niri_state.errors import SubscriptionOverflowError
 from niri_state.snapshot import Snapshot
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +50,7 @@ class Broadcaster:
             except asyncio.QueueFull:
                 policy = self._config.subscriber_overflow_policy
                 if policy is SubscriberOverflowPolicy.DROP_OLDEST:
+                    _LOGGER.warning("subscriber queue full; dropping oldest item")
                     try:
                         _ = subscriber.queue.get_nowait()
                     except asyncio.QueueEmpty:
@@ -61,6 +65,7 @@ class Broadcaster:
                             cause=exc,
                         ) from exc
                 else:
+                    _LOGGER.error("subscriber queue overflowed with fail-fast policy")
                     dead.append(subscriber)
                     raise SubscriptionOverflowError(
                         "subscriber queue overflowed",

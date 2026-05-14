@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 
 from niri_pypc.types.generated._metadata import UPSTREAM_VERSION as PYPC_SCHEMA_VERSION
 from pydantic import BaseModel, ConfigDict
@@ -33,6 +34,8 @@ from niri_state.protocol import (
 from niri_state.reconcile import reconcile
 from niri_state.reducers import reduce_event
 from niri_state.snapshot import Snapshot
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class BootstrapOutcome(BaseModel, frozen=True):
@@ -161,6 +164,7 @@ async def run_bootstrap(
     config: NiriStateConfig,
 ) -> BootstrapOutcome:
     try:
+        _LOGGER.info("bootstrap started")
         buffered_events: list[object] = []
 
         async def _buffer_events() -> None:
@@ -179,6 +183,7 @@ async def run_bootstrap(
         for event in buffered_events:
             result = reduce_event(engine, event, config=config, revision=0)
             if result.marked_desync:
+                _LOGGER.warning("bootstrap replay marked state as desynced")
                 engine.health = HealthState.STALE
             reconcile(engine)
 
@@ -198,11 +203,15 @@ async def run_bootstrap(
             initial_changeset=bootstrap_changeset(revision=snapshot.revision),
         )
     except InvariantError:
+        _LOGGER.exception("bootstrap invariant validation failed")
         raise
     except Exception as exc:
+        _LOGGER.exception("bootstrap failed")
         raise BootstrapError(
             "failed to bootstrap initial niri state",
             operation="bootstrap",
             retryable=True,
             cause=exc,
         ) from exc
+    finally:
+        _LOGGER.info("bootstrap finished")
