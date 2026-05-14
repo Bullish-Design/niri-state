@@ -385,7 +385,10 @@ class NiriState:
             )
 
             self._start_mutation_loop()
-            await old_bundle.close()
+            try:
+                await old_bundle.close()
+            except Exception:
+                _LOGGER.warning("failed to close old bundle during refresh; new connection is active", exc_info=True)
             _LOGGER.info("refresh completed (cause=%s)", cause.value)
             return self._snapshot
 
