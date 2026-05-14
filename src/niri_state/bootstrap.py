@@ -83,15 +83,7 @@ async def query_overview(client: NiriClient) -> Overview:
 
 async def query_version(client: NiriClient) -> str | None:
     response = await client.request(VersionRequest())
-    payload = response.payload
-
-    if payload is None:
-        return None
-    if isinstance(payload, str):
-        return payload
-    if hasattr(payload, "version"):
-        return payload.version
-    return str(payload)
+    return response.payload
 
 
 async def build_initial_engine_state(client: NiriClient) -> EngineState:
