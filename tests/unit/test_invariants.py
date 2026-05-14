@@ -52,3 +52,83 @@ def test_workspace_without_output_is_allowed() -> None:
 
     violations = collect_invariant_violations(snapshot)
     assert not any(v.code == "workspace_output_missing" for v in violations)
+
+
+def test_collects_missing_focused_window() -> None:
+    snapshot = Snapshot(
+        revision=1,
+        timestamp=0.0,
+        health=HealthState.LIVE,
+        outputs={},
+        workspaces={},
+        windows={},
+        focused_workspace_id=None,
+        focused_window_id=999,
+        keyboard_layouts=make_keyboard_layouts(),
+        overview=make_overview(),
+        diagnostics=Diagnostics(),
+        compatibility=Compatibility(),
+    )
+
+    violations = collect_invariant_violations(snapshot)
+    assert any(v.code == "focused_window_missing" for v in violations)
+
+
+def test_collects_missing_focused_workspace() -> None:
+    snapshot = Snapshot(
+        revision=1,
+        timestamp=0.0,
+        health=HealthState.LIVE,
+        outputs={},
+        workspaces={},
+        windows={},
+        focused_workspace_id=999,
+        focused_window_id=None,
+        keyboard_layouts=make_keyboard_layouts(),
+        overview=make_overview(),
+        diagnostics=Diagnostics(),
+        compatibility=Compatibility(),
+    )
+
+    violations = collect_invariant_violations(snapshot)
+    assert any(v.code == "focused_workspace_missing" for v in violations)
+
+
+def test_collects_missing_output_for_workspace() -> None:
+    snapshot = Snapshot(
+        revision=1,
+        timestamp=0.0,
+        health=HealthState.LIVE,
+        outputs={},
+        workspaces={1: make_workspace(id=1, output="MISSING-OUTPUT")},
+        windows={},
+        focused_workspace_id=None,
+        focused_window_id=None,
+        keyboard_layouts=make_keyboard_layouts(),
+        overview=make_overview(),
+        diagnostics=Diagnostics(),
+        compatibility=Compatibility(),
+    )
+
+    violations = collect_invariant_violations(snapshot)
+    assert any(v.code == "workspace_output_missing" for v in violations)
+
+
+def test_no_violations_for_valid_snapshot() -> None:
+    snapshot = Snapshot(
+        revision=1,
+        timestamp=0.0,
+        health=HealthState.LIVE,
+        outputs={"HDMI-A-1": make_output()},
+        workspaces={1: make_workspace(id=1, output="HDMI-A-1")},
+        windows={100: make_window(id=100, workspace_id=1)},
+        focused_workspace_id=1,
+        focused_window_id=100,
+        keyboard_layouts=make_keyboard_layouts(),
+        overview=make_overview(),
+        diagnostics=Diagnostics(),
+        compatibility=Compatibility(),
+    )
+
+    violations = collect_invariant_violations(snapshot)
+    assert violations == ()
