@@ -88,3 +88,13 @@ class TestArchitecture:
             imports = get_imports(py_file)
             violations = imports & shim_modules
             assert not violations, f"{py_file} imports from top-level shims: {violations}"
+
+    def test_api_errors_should_not_import_from_core(self) -> None:
+        """api/errors.py should not import data types from core (they leak into public API)."""
+        errors_file = Path("src/niri_state/api/errors.py")
+        if not errors_file.exists():
+            return
+
+        imports = get_imports(errors_file)
+        core_imports = {i for i in imports if i.startswith("niri_state.core")}
+        assert not core_imports, f"api/errors.py imports from core: {core_imports}"
