@@ -158,6 +158,18 @@ class NiriState:
         await self.connect()
         return self
 
+    async def __aenter__(self) -> NiriState:
+        await self.connect()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        await self.close()
+
     async def _mutation_loop(self) -> None:
         assert self._bundle is not None
         assert self._engine is not None
