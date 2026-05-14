@@ -77,3 +77,22 @@ async def test_refresh_when_not_connected_raises() -> None:
 
     with pytest.raises(StateLifecycleError, match="not connected"):
         await state.refresh()
+
+
+@pytest.mark.asyncio
+async def test_subscriber_receives_closed_on_close(fake_runtime_bundle) -> None:
+    async def _open_bundle():
+        return fake_runtime_bundle
+
+    state = NiriState(bundle_factory=_open_bundle)
+    await state.connect()
+
+    sub = state.subscribe()
+
+    initial = await sub.__anext__()
+    assert initial.snapshot.health is HealthState.LIVE
+
+    await state.close()
+
+    items_after_close = [item async for item in sub]
+    assert items_after_close == []
