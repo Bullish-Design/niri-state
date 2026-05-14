@@ -90,14 +90,25 @@ async def query_version(client: NiriClient) -> str | None:
 
 
 async def build_initial_engine_state(client: NiriClient) -> EngineState:
-    outputs = await query_outputs(client)
-    workspaces = await query_workspaces(client)
-    windows = await query_windows(client)
-    focused_output = await query_focused_output(client)
-    focused_window = await query_focused_window(client)
-    keyboard_layouts = await query_keyboard_layouts(client)
-    overview = await query_overview(client)
-    version = await query_version(client)
+    (
+        outputs,
+        workspaces,
+        windows,
+        focused_output,
+        focused_window,
+        keyboard_layouts,
+        overview,
+        version,
+    ) = await asyncio.gather(
+        query_outputs(client),
+        query_workspaces(client),
+        query_windows(client),
+        query_focused_output(client),
+        query_focused_window(client),
+        query_keyboard_layouts(client),
+        query_overview(client),
+        query_version(client),
+    )
 
     engine = EngineState.empty()
     engine.outputs = dict(outputs)
