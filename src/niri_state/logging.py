@@ -1,12 +1,8 @@
-from __future__ import annotations
+"""Compatibility shim - module moved to niri_state.observability.logging.
 
-import logging
-from typing import Final
+This module is deprecated. Please import from niri_state.observability.logging instead.
+"""
 
-_LOGGER_NAMESPACE: Final[str] = "niri_state"
+from niri_state.observability.logging import *  # noqa: F401,F403
 
-
-def get_logger(module_name: str) -> logging.Logger:
-    if module_name == _LOGGER_NAMESPACE or module_name.startswith(f"{_LOGGER_NAMESPACE}."):
-        return logging.getLogger(module_name)
-    return logging.getLogger(f"{_LOGGER_NAMESPACE}.{module_name}")
+__all__ = []
