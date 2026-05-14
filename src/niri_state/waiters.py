@@ -33,8 +33,14 @@ async def _subscription_iter(state: WaitableState) -> AsyncIterator[Snapshot]:
 
 
 async def watch(state: WaitableState) -> AsyncIterator[Snapshot]:
-    yield state.snapshot
+    initial = state.snapshot
+    yield initial
+    first = True
     async for snapshot in _subscription_iter(state):
+        if first:
+            first = False
+            if snapshot.revision == initial.revision:
+                continue
         yield snapshot
 
 
