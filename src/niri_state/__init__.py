@@ -24,6 +24,7 @@ from niri_state.api.errors import (
 from niri_state.api.health import HealthState
 from niri_state.api.snapshot import Snapshot
 from niri_state.api.state import NiriState
+from niri_state.core.broadcaster import PublishedState
 
 __all__ = [
     "BootstrapError",
@@ -37,6 +38,7 @@ __all__ = [
     "NiriState",
     "NiriStateConfig",
     "NiriStateError",
+    "PublishedState",
     "ReductionError",
     "ResyncError",
     "ResyncPolicy",
