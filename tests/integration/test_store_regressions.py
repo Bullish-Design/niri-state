@@ -63,8 +63,9 @@ async def test_refresh_open_failure_restores_mutation_loop() -> None:
     with pytest.raises(RuntimeError, match="open failed"):
         await state.refresh()
 
-    assert state._mutation_task is not None
-    assert not state._mutation_task.done()
+    mutation_task = state._mutation_task
+    assert mutation_task is not None
+    assert not mutation_task.done()
     await state.close()
 
 
