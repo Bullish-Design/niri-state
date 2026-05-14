@@ -11,12 +11,16 @@ from niri_state import NiriState, NiriStateConfig
 
 
 async def main() -> None:
-    state = await NiriState.start(NiriStateConfig())
+    state = await NiriState.open(NiriStateConfig())
     try:
         print(state.snapshot)
 
-        async for snapshot, changeset in state.subscribe():
-            print(snapshot.revision, snapshot.health, changeset)
+        async for published in state.subscribe():
+            print(
+                published.snapshot.revision,
+                published.snapshot.health,
+                published.changes,
+            )
             break
     finally:
         await state.close()
@@ -27,8 +31,11 @@ asyncio.run(main())
 
 ## Lifecycle notes
 
-- `NiriState.start()` performs bootstrap and starts the mutation loop.
+- `NiriState.open(config)` constructs and connects in one call.
+- `NiriState(config).start()` is the instance-style alternative.
+- `subscribe()` yields `PublishedState` values (`snapshot` + `changes`).
 - `subscribe()` yields the current snapshot first, then future publications.
+- `watch()` yields snapshots and suppresses duplicate initial publication revisions.
 - `refresh()` preserves monotonic revisions and emits resync lifecycle changes.
 - `close()` is idempotent and wakes blocked subscribers.
 
