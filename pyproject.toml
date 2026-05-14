@@ -1,6 +1,6 @@
 [project]
 name = "niri-state"
-version = "0.1.2"
+version = "0.1.3"
 description = "State modeling and selector helpers for the Niri compositor."
 readme = "README.md"
 requires-python = ">=3.13"
