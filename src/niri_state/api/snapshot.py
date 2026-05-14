@@ -6,9 +6,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from niri_state.diagnostics import Compatibility, Diagnostics
-from niri_state.health import HealthState
-from niri_state.protocol import KeyboardLayouts, Output, Overview, Window, Workspace
+from niri_state.adapters.protocol import KeyboardLayouts, Output, Overview, Window, Workspace
+from niri_state.api.health import HealthState
+from niri_state.core.diagnostics import Compatibility, Diagnostics
 
 
 class Snapshot(BaseModel, frozen=True):

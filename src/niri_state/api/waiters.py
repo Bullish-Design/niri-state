@@ -4,8 +4,8 @@ import asyncio
 from collections.abc import AsyncIterator, Callable
 from typing import Protocol
 
-from niri_state.broadcaster import PublishedState
 from niri_state.config import NiriStateConfig, WaitHealthPolicy
+from niri_state.core.broadcaster import PublishedState
 from niri_state.errors import WaitTimeoutError
 from niri_state.health import HealthState
 from niri_state.snapshot import Snapshot
