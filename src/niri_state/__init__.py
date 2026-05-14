@@ -1,6 +1,6 @@
 from niri_state._version import __version__
-from niri_state.changes import ChangeCause, ChangedDomain, ChangeSet
-from niri_state.config import (
+from niri_state.api.changes import ChangeCause, ChangedDomain, ChangeSet
+from niri_state.api.config import (
     InvariantFailurePolicy,
     NiriStateConfig,
     ResyncPolicy,
@@ -9,7 +9,7 @@ from niri_state.config import (
     WaitHealthPolicy,
     strict_config,
 )
-from niri_state.errors import (
+from niri_state.api.errors import (
     BootstrapError,
     DesyncError,
     InvariantError,
@@ -21,9 +21,9 @@ from niri_state.errors import (
     SubscriptionOverflowError,
     WaitTimeoutError,
 )
-from niri_state.health import HealthState
-from niri_state.snapshot import Snapshot
-from niri_state.store import NiriState
+from niri_state.api.health import HealthState
+from niri_state.api.snapshot import Snapshot
+from niri_state.api.state import NiriState
 
 __all__ = [
     "BootstrapError",
