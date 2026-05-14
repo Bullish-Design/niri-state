@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
+from niri_state.api.state import NiriState
 from niri_state.changes import ChangeCause
 from niri_state.config import NiriStateConfig, UnknownEventPolicy
 from niri_state.health import HealthState
 from niri_state.protocol import UnknownEvent
-from niri_state.store import NiriState
 from tests.factories.bundle import FakeBundle, FakeClient
 from tests.factories.protocol import make_window
 
@@ -33,7 +33,7 @@ async def test_connect_closes_bundle_when_bootstrap_fails(monkeypatch: pytest.Mo
         raise RuntimeError("bootstrap failed")
 
     state._open_bundle = _open_bundle  # type: ignore[method-assign]
-    monkeypatch.setattr("niri_state.store.run_bootstrap", _failing_bootstrap)
+    monkeypatch.setattr("niri_state.api.state.run_bootstrap", _failing_bootstrap)
 
     with pytest.raises(RuntimeError, match="bootstrap failed"):
         await state.connect()

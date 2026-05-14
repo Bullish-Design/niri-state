@@ -1,12 +1,8 @@
-from __future__ import annotations
+"""Compatibility shim - module moved to niri_state.api.selectors.overview.
 
-from niri_state.protocol import Overview
-from niri_state.snapshot import Snapshot
+This module is deprecated. Please import from niri_state.api.selectors.overview instead.
+"""
 
+from niri_state.api.selectors.overview import *  # noqa: F401,F403
 
-def get_overview(snapshot: Snapshot) -> Overview:
-    return snapshot.overview
-
-
-def is_overview_open(snapshot: Snapshot) -> bool:
-    return snapshot.overview.is_open
+__all__ = []

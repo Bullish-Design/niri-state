@@ -1,24 +1,8 @@
-from __future__ import annotations
+"""Compatibility shim - module moved to niri_state.api.selectors.workspaces.
 
-from niri_state.protocol import Workspace
-from niri_state.snapshot import Snapshot
+This module is deprecated. Please import from niri_state.api.selectors.workspaces instead.
+"""
 
+from niri_state.api.selectors.workspaces import *  # noqa: F401,F403
 
-def get_workspace(snapshot: Snapshot, workspace_id: int) -> Workspace | None:
-    return snapshot.workspaces.get(workspace_id)
-
-
-def list_workspaces(snapshot: Snapshot) -> tuple[Workspace, ...]:
-    return tuple(snapshot.workspaces.values())
-
-
-def list_workspaces_on_output(snapshot: Snapshot, output_name: str) -> tuple[Workspace, ...]:
-    ids = snapshot.workspaces_by_output.get(output_name, ())
-    return tuple(snapshot.workspaces[workspace_id] for workspace_id in ids)
-
-
-def get_active_workspace(snapshot: Snapshot, output_name: str) -> Workspace | None:
-    workspace_id = snapshot.active_workspace_by_output.get(output_name)
-    if workspace_id is None:
-        return None
-    return snapshot.workspaces.get(workspace_id)
+__all__ = []

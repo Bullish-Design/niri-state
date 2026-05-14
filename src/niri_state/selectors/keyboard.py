@@ -1,12 +1,8 @@
-from __future__ import annotations
+"""Compatibility shim - module moved to niri_state.api.selectors.keyboard.
 
-from niri_state.protocol import KeyboardLayouts
-from niri_state.snapshot import Snapshot
+This module is deprecated. Please import from niri_state.api.selectors.keyboard instead.
+"""
 
+from niri_state.api.selectors.keyboard import *  # noqa: F401,F403
 
-def get_keyboard_layouts(snapshot: Snapshot) -> KeyboardLayouts:
-    return snapshot.keyboard_layouts
-
-
-def get_keyboard_current_name(snapshot: Snapshot) -> str | None:
-    return snapshot.keyboard_current_name
+__all__ = []

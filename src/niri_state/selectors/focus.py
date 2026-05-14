@@ -1,28 +1,8 @@
-from __future__ import annotations
+"""Compatibility shim - module moved to niri_state.api.selectors.focus.
 
-from niri_state.protocol import Window, Workspace
-from niri_state.snapshot import Snapshot
+This module is deprecated. Please import from niri_state.api.selectors.focus instead.
+"""
 
+from niri_state.api.selectors.focus import *  # noqa: F401,F403
 
-def get_focused_window_id(snapshot: Snapshot) -> int | None:
-    return snapshot.focused_window_id
-
-
-def get_focused_workspace_id(snapshot: Snapshot) -> int | None:
-    return snapshot.focused_workspace_id
-
-
-def get_focused_output_name(snapshot: Snapshot) -> str | None:
-    return snapshot.focused_output_name
-
-
-def get_focused_window(snapshot: Snapshot) -> Window | None:
-    if snapshot.focused_window_id is None:
-        return None
-    return snapshot.windows.get(snapshot.focused_window_id)
-
-
-def get_focused_workspace(snapshot: Snapshot) -> Workspace | None:
-    if snapshot.focused_workspace_id is None:
-        return None
-    return snapshot.workspaces.get(snapshot.focused_workspace_id)
+__all__ = []
