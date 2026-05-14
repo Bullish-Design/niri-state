@@ -12,11 +12,11 @@ authors = [
 
 dependencies = [
   "pydantic>=2.12.5",
-  "niri-pypc>=0.3.1,<0.4",
+  "niri-pypc>=0.4.0",
 ]
 
 [tool.uv.sources]
-niri-pypc = { git = "https://github.com/Bullish-Design/niri-pypc.git", tag = "v0.3.1" }
+niri-pypc = { git = "https://github.com/Bullish-Design/niri-pypc.git", tag = "v0.4.0" }
 
 [project.optional-dependencies]
 dev = [
