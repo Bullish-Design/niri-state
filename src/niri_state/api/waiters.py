@@ -94,16 +94,20 @@ async def wait_for_selector[T](
     config: NiriStateConfig,
     timeout: float | None = None,
 ) -> T:
+    last_value: list[T] = []
+
     def _wrapped(snapshot: Snapshot) -> bool:
         value = selector(snapshot)
+        last_value.clear()
+        last_value.append(value)
         if predicate is None:
             return bool(value)
         return predicate(value)
 
-    snapshot = await wait_until(
+    await wait_until(
         state,
         _wrapped,
         config=config,
         timeout=timeout,
     )
-    return selector(snapshot)
+    return last_value[0]
