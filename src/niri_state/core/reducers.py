@@ -37,7 +37,10 @@ class ReduceResult:
     marked_desync: bool = False
 
 
-Reducer = Callable[[EngineState, object], frozenset[ChangedDomain]]
+# Each reducer function accepts a specific event subtype, but the registry
+# stores them uniformly. Type safety is enforced by the @register decorator
+# pairing each function with its corresponding event type at registration time.
+Reducer = Callable[[EngineState, Any], frozenset[ChangedDomain]]
 EVENT_REDUCERS: dict[type[EventValue], Reducer] = {}
 
 

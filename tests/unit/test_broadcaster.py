@@ -3,15 +3,15 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from tests.factories.protocol import make_keyboard_layouts, make_output, make_overview
 
+from niri_state.api.changes import ChangeCause, ChangeSet
 from niri_state.api.config import NiriStateConfig, SubscriberOverflowPolicy
-from niri_state.api.changes import ChangeCause, ChangeSet, ChangedDomain
 from niri_state.api.errors import SubscriptionOverflowError
 from niri_state.api.health import HealthState
 from niri_state.api.snapshot import Snapshot
 from niri_state.core.broadcaster import Broadcaster, PublishedState
 from niri_state.core.diagnostics import Compatibility, Diagnostics
-from tests.factories.protocol import make_keyboard_layouts, make_output, make_overview
 
 
 def _make_published(revision: int = 1) -> PublishedState:
@@ -66,7 +66,7 @@ async def test_publish_overflow_still_delivers_to_healthy_subscribers() -> None:
         subscriber_overflow_policy=SubscriberOverflowPolicy.FAIL_FAST,
     )
     broadcaster = Broadcaster(config)
-    slow_sub = broadcaster.subscribe()
+    _slow_sub = broadcaster.subscribe()
     fast_sub = broadcaster.subscribe()
 
     received: list[PublishedState] = []

@@ -6,9 +6,9 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 from niri_state.adapters.protocol import NiriConnectionBundle
 from niri_state.api.changes import (
-    bootstrap_changeset,
     ChangeCause,
     ChangedDomain,
+    bootstrap_changeset,
     close_changeset,
     event_changeset,
     health_changeset,
@@ -19,9 +19,9 @@ from niri_state.api.config import InvariantFailurePolicy, NiriStateConfig, Resyn
 from niri_state.api.errors import DesyncError, InvariantError, StateLifecycleError
 from niri_state.api.health import HealthState, validate_transition
 from niri_state.api.snapshot import Snapshot
+from niri_state.api.types import InvariantViolation
 from niri_state.core.bootstrap import run_bootstrap
 from niri_state.core.broadcaster import Broadcaster, PublishedState
-from niri_state.api.types import InvariantViolation
 from niri_state.core.diagnostics import (
     with_desync,
     with_error,
