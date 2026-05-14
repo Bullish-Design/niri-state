@@ -27,3 +27,27 @@ async def test_runtime_publishes_after_event() -> None:
     assert 999 in state.snapshot.windows
 
     await state.close()
+
+
+@pytest.mark.asyncio
+async def test_mutation_loop_marks_stale_on_desync() -> None:
+    from niri_state.api.health import HealthState
+    from tests.factories.events import make_window_urgency_changed_event
+
+    event = make_window_urgency_changed_event(id=999, urgent=True)
+    bundle = FakeBundle(events=(event,), event_delay_s=0.01)
+
+    async def _open_bundle() -> FakeBundle:
+        return bundle
+
+    state = NiriState(bundle_factory=_open_bundle)
+    await state.connect()
+
+    for _ in range(20):
+        if state.snapshot.health is HealthState.STALE:
+            break
+        await asyncio.sleep(0.02)
+
+    assert state.snapshot.health is HealthState.STALE
+    assert state.snapshot.diagnostics.desynced is True
+    await state.close()
