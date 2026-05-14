@@ -51,15 +51,13 @@ class NiriStateConfig(BaseModel, frozen=True):
 
 
 def strict_config(**overrides: object) -> NiriStateConfig:
-    base = NiriStateConfig(**overrides)
+    strict_defaults: dict[str, object] = {
+        "unknown_event_policy": UnknownEventPolicy.FAIL,
+        "invariant_failure_policy": InvariantFailurePolicy.FAIL,
+        "subscriber_overflow_policy": SubscriberOverflowPolicy.FAIL_FAST,
+    }
+    merged = {**strict_defaults, **overrides}
+    base = NiriStateConfig(**merged)
     pypc_update = cast(Mapping[str, Any], {"backpressure_mode": BackpressureMode.FAIL_FAST})
-    state_update = cast(
-        Mapping[str, Any],
-        {
-            "pypc": base.pypc.model_copy(update=pypc_update),
-            "unknown_event_policy": UnknownEventPolicy.FAIL,
-            "invariant_failure_policy": InvariantFailurePolicy.FAIL,
-            "subscriber_overflow_policy": SubscriberOverflowPolicy.FAIL_FAST,
-        },
-    )
-    return base.model_copy(update=state_update)
+    pypc_merged = cast(Mapping[str, Any], {"pypc": base.pypc.model_copy(update=pypc_update)})
+    return base.model_copy(update=pypc_merged)
