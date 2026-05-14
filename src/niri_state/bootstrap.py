@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 
+from niri_pypc.types.generated._metadata import UPSTREAM_VERSION as PYPC_SCHEMA_VERSION
 from pydantic import BaseModel, ConfigDict
 
 from niri_state.changes import ChangeSet, bootstrap_changeset
@@ -111,7 +112,13 @@ async def build_initial_engine_state(client: NiriClient) -> EngineState:
     engine.overview = overview
     engine.health = HealthState.BOOTSTRAPPING
     engine.diagnostics = Diagnostics()
-    engine.compatibility = Compatibility(niri_version=version)
+    engine.compatibility = Compatibility(
+        niri_version=version,
+        schema_version=PYPC_SCHEMA_VERSION,
+        warnings=()
+        if version in {None, PYPC_SCHEMA_VERSION}
+        else (f"runtime niri version {version} differs from schema version {PYPC_SCHEMA_VERSION}",),
+    )
 
     if focused_window is not None:
         engine.focused_window_id = focused_window.id
@@ -178,10 +185,13 @@ async def run_bootstrap(
                 await buffer_task
 
         for event in buffered_events:
-            reduce_event(engine, event, config=config, revision=0)
+            result = reduce_event(engine, event, config=config, revision=0)
+            if result.marked_desync:
+                engine.health = HealthState.STALE
             reconcile(engine)
 
-        engine.health = HealthState.LIVE
+        if engine.health is HealthState.BOOTSTRAPPING:
+            engine.health = HealthState.LIVE
 
         snapshot = engine.freeze(revision=1)
         snapshot = _apply_bootstrap_invariant_policy(

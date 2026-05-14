@@ -12,6 +12,7 @@ from niri_state.changes import (
     close_changeset,
     event_changeset,
     health_changeset,
+    refresh_changeset,
     resync_changeset,
 )
 from niri_state.config import InvariantFailurePolicy, NiriStateConfig, ResyncPolicy
@@ -32,8 +33,27 @@ from niri_state.reducers import reduce_event
 from niri_state.resync import ResyncCoordinator
 from niri_state.snapshot import Snapshot
 
+_FULL_DOMAINS = frozenset(
+    {
+        ChangedDomain.OUTPUTS,
+        ChangedDomain.WORKSPACES,
+        ChangedDomain.WINDOWS,
+        ChangedDomain.FOCUS,
+        ChangedDomain.KEYBOARD,
+        ChangedDomain.OVERVIEW,
+        ChangedDomain.HEALTH,
+        ChangedDomain.DIAGNOSTICS,
+    }
+)
+
 
 class NiriState:
+    @classmethod
+    async def open(cls, config: NiriStateConfig | None = None) -> NiriState:
+        state = cls(config)
+        await state.connect()
+        return state
+
     def __init__(self, config: NiriStateConfig | None = None) -> None:
         self._config = config or NiriStateConfig()
         self._lock = asyncio.Lock()
@@ -105,9 +125,14 @@ class NiriState:
                     operation="connect",
                 )
 
-            self._bundle = await self._open_bundle()
-            outcome = await run_bootstrap(self._bundle, config=self._config)
+            bundle = await self._open_bundle()
+            try:
+                outcome = await run_bootstrap(bundle, config=self._config)
+            except Exception:
+                await bundle.close()
+                raise
 
+            self._bundle = bundle
             self._install_bootstrap_outcome(outcome)
 
             await self._broadcaster.publish(
@@ -274,12 +299,19 @@ class NiriState:
 
             old_bundle = self._bundle
             old_engine = self._engine
+
             await self._stop_mutation_loop()
-            new_bundle = await self._open_bundle()
+
+            new_bundle: NiriConnectionBundle | None = None
             try:
+                if old_engine is not None and old_engine.health in {HealthState.LIVE, HealthState.STALE}:
+                    await self._transition_health(HealthState.RESYNCING)
+
+                new_bundle = await self._open_bundle()
                 outcome = await run_bootstrap(new_bundle, config=self._config)
             except Exception:
-                await new_bundle.close()
+                if new_bundle is not None:
+                    await new_bundle.close()
                 self._bundle = old_bundle
                 self._engine = old_engine
                 self._start_mutation_loop()
@@ -304,44 +336,15 @@ class NiriState:
                 PublishedState(
                     snapshot=self._snapshot,
                     changes=(
-                        resync_changeset(
-                            revision=self._snapshot.revision,
-                            domains=frozenset(
-                                {
-                                    ChangedDomain.OUTPUTS,
-                                    ChangedDomain.WORKSPACES,
-                                    ChangedDomain.WINDOWS,
-                                    ChangedDomain.FOCUS,
-                                    ChangedDomain.KEYBOARD,
-                                    ChangedDomain.OVERVIEW,
-                                    ChangedDomain.HEALTH,
-                                    ChangedDomain.DIAGNOSTICS,
-                                }
-                            ),
-                        )
+                        resync_changeset(revision=self._snapshot.revision, domains=_FULL_DOMAINS)
                         if cause is ChangeCause.RESYNC
-                        else event_changeset(
-                            revision=self._snapshot.revision,
-                            domains=frozenset(
-                                {
-                                    ChangedDomain.OUTPUTS,
-                                    ChangedDomain.WORKSPACES,
-                                    ChangedDomain.WINDOWS,
-                                    ChangedDomain.FOCUS,
-                                    ChangedDomain.KEYBOARD,
-                                    ChangedDomain.OVERVIEW,
-                                    ChangedDomain.HEALTH,
-                                    ChangedDomain.DIAGNOSTICS,
-                                }
-                            ),
-                        )
+                        else refresh_changeset(revision=self._snapshot.revision, domains=_FULL_DOMAINS)
                     ),
                 )
             )
-            self._start_mutation_loop()
-            if old_bundle is not None:
-                await old_bundle.close()
 
+            self._start_mutation_loop()
+            await old_bundle.close()
             return self._snapshot
 
     async def close(self) -> None:

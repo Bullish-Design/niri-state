@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-niri-pypc = { git = "https://github.com/Bullish-Design/niri-pypc.git", tag = "v0.3.0" }
+niri-pypc = { git = "https://github.com/Bullish-Design/niri-pypc.git", tag = "v0.3.1" }
 
 [project.optional-dependencies]
 dev = [
