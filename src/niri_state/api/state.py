@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 from niri_state.adapters.protocol import NiriConnectionBundle
 from niri_state.api.changes import (
+    bootstrap_changeset,
     ChangeCause,
     ChangedDomain,
     close_changeset,
@@ -106,7 +107,7 @@ class NiriState:
         if self._snapshot is not None:
             yield PublishedState(
                 snapshot=self._snapshot,
-                changes=health_changeset(revision=self._snapshot.revision),
+                changes=bootstrap_changeset(revision=self._snapshot.revision),
             )
         async for published in self._broadcaster.subscribe():
             yield published
