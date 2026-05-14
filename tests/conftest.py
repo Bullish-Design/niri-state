@@ -6,6 +6,7 @@ import pytest
 
 from niri_state.api.health import HealthState
 from niri_state.api.snapshot import Snapshot
+from niri_state.core.broadcaster import PublishedState
 from niri_state.core.diagnostics import Compatibility, Diagnostics
 from tests.factories.bundle import FakeBundle
 from tests.factories.protocol import (
@@ -50,9 +51,9 @@ class DummyState:
     def snapshot(self) -> Snapshot:
         return self._snapshot
 
-    async def subscribe(self) -> AsyncIterator[object]:
+    async def subscribe(self) -> AsyncIterator[PublishedState]:
         if False:
-            yield None
+            yield  # type: ignore[misc]  # pragma: no cover
 
 
 @pytest.fixture
