@@ -75,6 +75,12 @@ def test_cli_rejects_invalid_format() -> None:
     assert result.exit_code == 2
 
 
+def test_cli_requires_stream_subcommand() -> None:
+    runner = CliRunner()
+    result = runner.invoke(app, ["--format", "json"])
+    assert result.exit_code == 2
+
+
 async def test_stream_loop_skips_initial_when_disabled() -> None:
     fake = _FakeState(
         [

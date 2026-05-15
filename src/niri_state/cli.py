@@ -23,6 +23,11 @@ class SupportsStreamState(Protocol):
     async def close(self) -> None: ...
 
 
+@app.callback()
+def cli() -> None:
+    """niri-state CLI commands."""
+
+
 @app.command()
 def stream(
     fmt: Annotated[

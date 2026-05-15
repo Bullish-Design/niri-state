@@ -2,7 +2,7 @@
 
 **Project**: `12-event-batching`
 **Date**: 2026-05-15
-**Branch**: `v2-rewrite` (build on top of completed v2 refactor)
+**Branch**: `event-batching` (new branch for this refactor)
 **Source**: STATUS_SUMMARY.md § "Deferred Improvements" — Event batching
 
 ---
