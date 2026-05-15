@@ -43,6 +43,14 @@ JSON-lines mode:
 devenv shell -- niri-state stream --format json
 ```
 
+Detail levels:
+
+```bash
+devenv shell -- niri-state stream --format json --detail focus
+devenv shell -- niri-state stream --format json --detail delta
+devenv shell -- niri-state stream --format json --detail snapshot
+```
+
 `Ctrl+C` exits cleanly.
 
 ## Lifecycle notes
