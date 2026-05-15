@@ -13,6 +13,7 @@ authors = [
 dependencies = [
   "pydantic>=2.12.5",
   "niri-pypc>=0.4.0",
+  "typer>=0.12",
 ]
 
 [tool.uv.sources]
@@ -26,6 +27,9 @@ dev = [
   "mypy>=1.10",
   "ruff>=0.5.0",
 ]
+
+[project.scripts]
+niri-state = "niri_state.cli:main"
 
 [project.urls]
 homepage = "https://github.com/Bullish-Design/niri-state"

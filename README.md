@@ -29,6 +29,22 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## CLI
+
+Stream publications continuously:
+
+```bash
+devenv shell -- niri-state stream
+```
+
+JSON-lines mode:
+
+```bash
+devenv shell -- niri-state stream --format json
+```
+
+`Ctrl+C` exits cleanly.
+
 ## Lifecycle notes
 
 - `NiriState.open(config)` constructs and connects in one call.
